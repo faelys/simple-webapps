@@ -1,0 +1,17 @@
+with "webapps";
+
+project Tests is
+   for Source_Dirs use ("tests");
+   for Main use ("upload_server.adb");
+
+   for Object_Dir use Webapps'Object_Dir;
+   for Exec_Dir use Webapps'Exec_Dir;
+
+   package Compiler is
+      for Default_Switches use Webapps.Compiler'Default_Switches;
+   end Compiler;
+
+   package Linker is
+      for Default_Switches use Webapps.Linker'Default_Switches;
+   end Linker;
+end Tests;

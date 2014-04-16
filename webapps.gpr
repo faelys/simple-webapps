@@ -1,0 +1,69 @@
+with "../natools/natools";
+with "aws";
+
+project Webapps is
+   type Build_Type is ("Release", "Coverage");
+   Mode : Build_Type := external ("MODE", "Release");
+
+   Prefix := "";
+   Extra_Switches := ();
+
+   case Mode is
+      when "Release" =>
+         Prefix := "";
+      when "Coverage" =>
+         Prefix := "coverage/";
+   end case;
+
+   for Source_Dirs use ("src");
+   for Object_Dir use Prefix & "obj";
+   for Exec_Dir use Prefix & "bin";
+   for Main use ("upload_server.adb");
+
+   case Mode is
+      when "Release" =>
+         Extra_Switches := ("-O3");
+      when "Coverage" =>
+         Extra_Switches :=
+           ("-g", "-O0", "-fprofile-arcs", "-ftest-coverage");
+   end case;
+
+
+   package Compiler is
+      for Default_Switches ("Ada") use
+        ("-gnatafnovy",
+            --  a: assersions enabled
+            --  f: full errors (verbose details and all undefined references)
+            --  n: enable pragma Inline
+            --  o: overflow checking
+            --  v: verbose mode
+            --  y: enable default style checks, currently equivalent to:
+            --     3: 3-space indentation
+            --     a: attribute casing
+            --     b: no blanks at end of lines
+            --     c: comment format
+            --     e: end/exit labels
+            --     f: no form feed or vertical tab
+            --     h: no horizontal tab
+            --     i: if-then layout
+            --     k: casing rules for keywords
+            --     l: reference manual layout
+            --     m: line lgnth <= 79 characters
+            --     n: casing of package Standard identifiers
+            --     p: pragma casing
+            --     r: casing for identifier references
+            --     s: presence of subprogram specs
+            --     t: token separation rules
+         "-gnateE",
+            --  generate extra information in exception messages
+         "-gnatwae",
+            --  a: turn on most warnings
+            --  e: treat all warnings as errors
+         "-fstack-check")
+        & Extra_Switches;
+   end Compiler;
+
+   package Linker is
+      for Default_Switches ("Ada") use Extra_Switches;
+   end Linker;
+end Webapps;
