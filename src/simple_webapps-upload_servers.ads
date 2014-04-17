@@ -75,20 +75,30 @@ private
       Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool);
 
    package File_Maps is new Ada.Containers.Ordered_Maps
-     (URI_Key, File_Refs.Reference, "=" => File_Refs."=");
+     (URI_Key, File_Refs.Immutable_Reference, "=" => File_Refs."=");
 
-   type Database is limited record
+   protected type Database is
+      function Report (Key : URI_Key) return File_Refs.Immutable_Reference;
+
+      function Download (Key : URI_Key) return File_Refs.Immutable_Reference;
+
+      function Path (Report : URI_Key) return String;
+
+      procedure Post_File
+        (Request : in AWS.Status.Data;
+         Report : out URI_Key);
+         --  Process Request to add a new file to the Database
+
+      procedure Reset
+        (New_Directory : in String;
+         New_HMAC_Key : in String);
+         --  Reset database to a clean state with the given parameters
+   private
       Directory : String_Holder;
       HMAC_Key : String_Holder;
       Reports : File_Maps.Map;
-      Download : File_Maps.Map;
-   end record;
-
-   procedure Post_File
-     (Self : in out Database;
-      Request : in AWS.Status.Data;
-      Report : out URI_Key);
-      --  Process Request to add a new file to the Database
+      Downloads : File_Maps.Map;
+   end Database;
 
    package Database_Refs is new Natools.References
      (Database,

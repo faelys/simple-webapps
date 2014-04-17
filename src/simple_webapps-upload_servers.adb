@@ -53,7 +53,7 @@ package body Simple_Webapps.Upload_Servers is
             declare
                Report : URI_Key;
             begin
-               Post_File (Dispatcher.DB.Update.Data.all, Request, Report);
+               Dispatcher.DB.Update.Data.Post_File (Request, Report);
                return AWS.Response.URL ('/' & Report);
             end;
 
@@ -67,7 +67,7 @@ package body Simple_Webapps.Upload_Servers is
       declare
          URI : constant String := AWS.Status.URI (Request);
          Key : URI_Key;
-         Cursor : File_Maps.Cursor;
+         Ref : File_Refs.Immutable_Reference;
       begin
          pragma Assert (URI (URI'First) = '/');
 
@@ -91,23 +91,20 @@ package body Simple_Webapps.Upload_Servers is
          Key := URI (URI'First + 1 .. URI'First + Key'Length);
 
          if URI'Length = Key'Length + 1 then
-            Cursor := Dispatcher.DB.Query.Data.Reports.Find (Key);
-            if File_Maps.Has_Element (Cursor) then
-               return Response (File_Maps.Element (Cursor).Query.Data.all);
+            Ref := Dispatcher.DB.Query.Data.Report (Key);
+            if not Ref.Is_Empty then
+               return Response (Ref.Query.Data.all);
             end if;
          elsif URI (URI'First + Key'Length + 1) /= '/' then
             return AWS.Response.Acknowledge (AWS.Messages.S404);
          end if;
 
-         Cursor := Dispatcher.DB.Query.Data.Download.Find (Key);
+         Ref := Dispatcher.DB.Query.Data.Download (Key);
 
-         if File_Maps.Has_Element (Cursor) then
+         if not Ref.Is_Empty then
             return AWS.Response.File
               ("application/octet-stream",
-               Ada.Directories.Compose
-                 (To_String (Dispatcher.DB.Query.Data.Directory),
-                  File_Maps.Element (Cursor).Query.Data.Report,
-                  ""));
+               Dispatcher.DB.Query.Data.Path (Ref.Query.Data.Report));
          else
             return AWS.Response.Acknowledge (AWS.Messages.S404);
          end if;
@@ -130,11 +127,9 @@ package body Simple_Webapps.Upload_Servers is
 
       function Create return Database is
       begin
-         return
-           (Directory => Hold (Directory),
-            HMAC_Key => Hold (HMAC_Key),
-            Reports => File_Maps.Empty_Map,
-            Download => File_Maps.Empty_Map);
+         return DB : Database do
+            DB.Reset (Directory, HMAC_Key);
+         end return;
       end Create;
    begin
       Dispatcher.DB.Replace (Create'Access);
@@ -175,73 +170,113 @@ package body Simple_Webapps.Upload_Servers is
    -- File Database --
    -------------------
 
-   procedure Post_File
-     (Self : in out Database;
-      Request : in AWS.Status.Data;
-      Report : out URI_Key)
-   is
-      Parameters : constant AWS.Parameters.List
-        := AWS.Status.Parameters (Request);
-      Local_Path : constant String := AWS.Parameters.Get (Parameters, "file");
-      Name : constant String := AWS.Parameters.Get (Parameters, "file", 2);
-      Download : URI_Key;
-
-      function Create return File;
-
-      function Create return File is
+   protected body Database is
+      function Report (Key : URI_Key) return File_Refs.Immutable_Reference is
+         Cursor : constant File_Maps.Cursor := Reports.Find (Key);
       begin
-         return
-           (Name => Hold (Name),
-            Report => Report,
-            Download => Download);
-      end Create;
-   begin
-      Compute_Hash :
-      declare
-         package Stream_IO renames Ada.Streams.Stream_IO;
+         if File_Maps.Has_Element (Cursor) then
+            return File_Maps.Element (Cursor);
+         else
+            return File_Refs.Null_Immutable_Reference;
+         end if;
+      end Report;
 
-         Context : Hash.Context := Hash.Initial_Context;
-         Block : Ada.Streams.Stream_Element_Array (1 .. 1024);
-         Last : Ada.Streams.Stream_Element_Offset;
-         Input : Stream_IO.File_Type;
+
+      function Download (Key : URI_Key) return File_Refs.Immutable_Reference is
+         Cursor : constant File_Maps.Cursor := Downloads.Find (Key);
       begin
-         Stream_IO.Open (Input, Stream_IO.In_File, Local_Path);
-         loop
-            Stream_IO.Read (Input, Block, Last);
-            exit when Last not in Block'Range;
-            Hash.Update (Context, Block (Block'First .. Last));
-         end loop;
-         Stream_IO.Close (Input);
+         if File_Maps.Has_Element (Cursor) then
+            return File_Maps.Element (Cursor);
+         else
+            return File_Refs.Null_Immutable_Reference;
+         end if;
+      end Download;
 
-         Report := S_Expressions.To_String
+
+      function Path (Report : URI_Key) return String is
+      begin
+         return Ada.Directories.Compose (To_String (Directory), Report, "");
+      end Path;
+
+
+      procedure Post_File
+        (Request : in AWS.Status.Data;
+         Report : out URI_Key)
+      is
+         Parameters : constant AWS.Parameters.List
+           := AWS.Status.Parameters (Request);
+         Local_Path : constant String
+           := AWS.Parameters.Get (Parameters, "file");
+         Name : constant String := AWS.Parameters.Get (Parameters, "file", 2);
+         Download : URI_Key;
+
+         function Create return File;
+
+         function Create return File is
+         begin
+            return
+              (Name => Hold (Name),
+               Report => Report,
+               Download => Download);
+         end Create;
+      begin
+         Compute_Hash :
+         declare
+            package Stream_IO renames Ada.Streams.Stream_IO;
+
+            Context : Hash.Context := Hash.Initial_Context;
+            Block : Ada.Streams.Stream_Element_Array (1 .. 1024);
+            Last : Ada.Streams.Stream_Element_Offset;
+            Input : Stream_IO.File_Type;
+         begin
+            Stream_IO.Open (Input, Stream_IO.In_File, Local_Path);
+            loop
+               Stream_IO.Read (Input, Block, Last);
+               exit when Last not in Block'Range;
+               Hash.Update (Context, Block (Block'First .. Last));
+            end loop;
+            Stream_IO.Close (Input);
+
+            Report := S_Expressions.To_String
+              (S_Expressions.Encodings.Encode_Base64
+                 (Natools.GNAT_HMAC.Digest (Context), Digit_62, Digit_63));
+         end Compute_Hash;
+
+         Save_File :
+         declare
+            Target_Path : constant String := Path (Report);
+         begin
+            Ada.Directories.Copy_File (Local_Path, Target_Path);
+         end Save_File;
+
+         Download := S_Expressions.To_String
            (S_Expressions.Encodings.Encode_Base64
-              (Natools.GNAT_HMAC.Digest (Context), Digit_62, Digit_63));
-      end Compute_Hash;
+              (HMAC.Digest
+                 (To_String (HMAC_Key),
+                  S_Expressions.To_Atom (Report)),
+               Digit_62,
+               Digit_63));
 
-      Save_File :
-      declare
-         Target_Path : constant String
-           := Ada.Directories.Compose (To_String (Self.Directory), Report, "");
+         Insert_Ref :
+         declare
+            Ref : constant File_Refs.Immutable_Reference
+              := File_Refs.Create (Create'Access);
+         begin
+            Reports.Insert (Report, Ref);
+            Downloads.Insert (Download, Ref);
+         end Insert_Ref;
+      end Post_File;
+
+
+      procedure Reset
+        (New_Directory : in String;
+         New_HMAC_Key : in String) is
       begin
-         Ada.Directories.Copy_File (Local_Path, Target_Path);
-      end Save_File;
-
-      Download := S_Expressions.To_String
-        (S_Expressions.Encodings.Encode_Base64
-           (HMAC.Digest
-              (To_String (Self.HMAC_Key),
-               S_Expressions.To_Atom (Report)),
-            Digit_62,
-            Digit_63));
-
-      Insert_Ref :
-      declare
-         Ref : constant File_Refs.Reference
-           := File_Refs.Create (Create'Access);
-      begin
-         Self.Reports.Insert (Report, Ref);
-         Self.Download.Insert (Download, Ref);
-      end Insert_Ref;
-   end Post_File;
+         Directory := Hold (New_Directory);
+         HMAC_Key := Hold (New_HMAC_Key);
+         Reports.Clear;
+         Downloads.Clear;
+      end Reset;
+   end Database;
 
 end Simple_Webapps.Upload_Servers;
