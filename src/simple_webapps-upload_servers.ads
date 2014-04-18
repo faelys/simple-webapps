@@ -31,6 +31,7 @@ with AWS.Status;
 with AWS.Response;
 
 private with Ada.Containers.Ordered_Maps;
+private with Ada.Streams;
 private with Ada.Strings.Unbounded;
 private with Natools.References;
 private with Natools.Storage_Pools;
@@ -67,8 +68,6 @@ private
       Download : URI_Key;
    end record;
 
-   function Response (F : File) return AWS.Response.Data;
-
    package File_Refs is new Natools.References
      (File,
       Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool,
@@ -82,7 +81,9 @@ private
 
       function Download (Key : URI_Key) return File_Refs.Immutable_Reference;
 
-      function Path (Report : URI_Key) return String;
+      function Path (Ref : File_Refs.Immutable_Reference) return String;
+      function Hex_Digest (Ref : File_Refs.Immutable_Reference) return String;
+      function Hash_Name (Ref : File_Refs.Immutable_Reference) return String;
 
       procedure Post_File
         (Request : in AWS.Status.Data;
@@ -94,6 +95,8 @@ private
          New_HMAC_Key : in String);
          --  Reset database to a clean state with the given parameters
    private
+      function Path (Report : URI_Key) return String;
+
       Directory : String_Holder;
       HMAC_Key : String_Holder;
       Reports : File_Maps.Map;
@@ -108,5 +111,10 @@ private
    type Handler is new AWS.Dispatchers.Handler with record
       DB : Database_Refs.Reference;
    end record;
+
+   Digit_62 : constant Ada.Streams.Stream_Element := Character'Pos ('-');
+   Digit_63 : constant Ada.Streams.Stream_Element := Character'Pos ('_');
+      --  Special digits for base-64 URI (RFC 4648)
+
 
 end Simple_Webapps.Upload_Servers;
