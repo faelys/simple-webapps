@@ -31,10 +31,10 @@ with AWS.Status;
 with AWS.Response;
 
 private with Ada.Containers.Ordered_Maps;
-private with Ada.Streams;
 private with Ada.Strings.Unbounded;
 private with Natools.References;
 private with Natools.Storage_Pools;
+private with Natools.S_Expressions.Atom_Buffers;
 
 package Simple_Webapps.Upload_Servers is
 
@@ -62,59 +62,80 @@ private
 
    subtype URI_Key is String (1 .. 27);
 
-   type File is record
-      Name : String_Holder;
-      Report : URI_Key;
-      Download : URI_Key;
-   end record;
+   package Backend is
+      package Atom_Refs renames Natools.S_Expressions.Atom_Buffers.Atom_Refs;
 
-   package File_Refs is new Natools.References
-     (File,
-      Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool,
-      Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool);
+      type File is tagged private;
 
-   package File_Maps is new Ada.Containers.Ordered_Maps
-     (URI_Key, File_Refs.Immutable_Reference, "=" => File_Refs."=");
+      function Is_Empty (Self : File) return Boolean;
+      function Name (Self : File) return String;
+      function Path (Self : File) return String;
+      function Report (Self : File) return URI_Key;
+      function Download (Self : File) return URI_Key;
+      function Hash_Type (Self : File) return String;
+      function Hex_Digest (Self : File) return String;
 
-   protected type Database is
-      function Report (Key : URI_Key) return File_Refs.Immutable_Reference;
+      type File_Set is private;
 
-      function Download (Key : URI_Key) return File_Refs.Immutable_Reference;
+      protected type Database is
+         function Report (Key : URI_Key) return File;
 
-      function Path (Ref : File_Refs.Immutable_Reference) return String;
-      function Hex_Digest (Ref : File_Refs.Immutable_Reference) return String;
-      function Hash_Name (Ref : File_Refs.Immutable_Reference) return String;
+         function Download (Key : URI_Key) return File;
 
-      procedure Post_File
-        (Request : in AWS.Status.Data;
-         Report : out URI_Key);
-         --  Process Request to add a new file to the Database
+         procedure Post_File
+           (Request : in AWS.Status.Data;
+            Report : out URI_Key);
+            --  Process Request to add a new file to the Database
 
-      procedure Reset
-        (New_Directory : in String;
-         New_HMAC_Key : in String);
-         --  Reset database to a clean state with the given parameters
+         procedure Reset
+           (New_Directory : in String;
+            New_HMAC_Key : in String);
+            --  Reset database to a clean state with the given parameters
+      private
+         Directory : Atom_Refs.Immutable_Reference;
+         HMAC_Key : String_Holder;
+         Files : File_Set;
+      end Database;
+
    private
-      function Path (Report : URI_Key) return String;
 
-      Directory : String_Holder;
-      HMAC_Key : String_Holder;
-      Reports : File_Maps.Map;
-      Downloads : File_Maps.Map;
-   end Database;
+      function Path
+        (Directory : Atom_Refs.Immutable_Reference;
+         Report : URI_Key)
+        return String;
+
+      type File_Data is record
+         Name : String_Holder;
+         Report : URI_Key;
+         Download : URI_Key;
+         Directory : Atom_Refs.Immutable_Reference;
+      end record;
+
+      package File_Refs is new Natools.References
+        (File_Data,
+         Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool,
+         Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool);
+
+      type File is tagged record
+         Ref : File_Refs.Immutable_Reference;
+      end record;
+
+      package File_Maps is new Ada.Containers.Ordered_Maps (URI_Key, File);
+
+      type File_Set is record
+         Reports : File_Maps.Map;
+         Downloads : File_Maps.Map;
+      end record;
+
+   end Backend;
 
    package Database_Refs is new Natools.References
-     (Database,
+     (Backend.Database,
       Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool,
       Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool);
 
    type Handler is new AWS.Dispatchers.Handler with record
       DB : Database_Refs.Reference;
    end record;
-
-   Digit_62 : constant Ada.Streams.Stream_Element := Character'Pos ('-');
-   Digit_63 : constant Ada.Streams.Stream_Element := Character'Pos ('_');
-      --  Special digits for base-64 URI (RFC 4648)
-
 
 end Simple_Webapps.Upload_Servers;

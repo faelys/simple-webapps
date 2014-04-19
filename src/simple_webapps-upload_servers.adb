@@ -15,27 +15,20 @@
 ------------------------------------------------------------------------------
 
 with Ada.Directories;
-with Ada.Streams.Stream_IO;
 
 with AWS.Messages;
 with AWS.Parameters;
-
-with Natools.S_Expressions;
-with Natools.S_Expressions.Encodings;
 
 package body Simple_Webapps.Upload_Servers is
 
    package S_Expressions renames Natools.S_Expressions;
 
-   protected body Database is separate;
+   package body Backend is separate;
 
-   function Report
-     (F : File;
-      Hash_Name, Digest : String)
-     return AWS.Response.Data;
+   function Report (File : Backend.File) return AWS.Response.Data;
       --  Create a report page for the given file
 
-   function Upload_Form (DB : Database) return AWS.Response.Data;
+   function Upload_Form (DB : Backend.Database) return AWS.Response.Data;
       --  Create the main upload form
 
 
@@ -68,7 +61,7 @@ package body Simple_Webapps.Upload_Servers is
       declare
          URI : constant String := AWS.Status.URI (Request);
          Key : URI_Key;
-         Ref : File_Refs.Immutable_Reference;
+         File : Backend.File;
       begin
          pragma Assert (URI (URI'First) = '/');
 
@@ -83,23 +76,19 @@ package body Simple_Webapps.Upload_Servers is
          Key := URI (URI'First + 1 .. URI'First + Key'Length);
 
          if URI'Length = Key'Length + 1 then
-            Ref := Dispatcher.DB.Query.Data.Report (Key);
-            if not Ref.Is_Empty then
-               return Report
-                 (Ref.Query.Data.all,
-                  Dispatcher.DB.Query.Data.Hash_Name (Ref),
-                  Dispatcher.DB.Query.Data.Hex_Digest (Ref));
+            File := Dispatcher.DB.Query.Data.Report (Key);
+            if not File.Is_Empty then
+               return Report (File);
             end if;
          elsif URI (URI'First + Key'Length + 1) /= '/' then
             return AWS.Response.Acknowledge (AWS.Messages.S404);
          end if;
 
-         Ref := Dispatcher.DB.Query.Data.Download (Key);
+         File := Dispatcher.DB.Query.Data.Download (Key);
 
-         if not Ref.Is_Empty then
+         if not File.Is_Empty then
             return AWS.Response.File
-              ("application/octet-stream",
-               Dispatcher.DB.Query.Data.Path (Ref));
+              ("application/octet-stream", File.Path);
          else
             return AWS.Response.Acknowledge (AWS.Messages.S404);
          end if;
@@ -118,11 +107,11 @@ package body Simple_Webapps.Upload_Servers is
       Directory : in String;
       HMAC_Key : in String)
    is
-      function Create return Database;
+      function Create return Backend.Database;
 
-      function Create return Database is
+      function Create return Backend.Database is
       begin
-         return DB : Database do
+         return DB : Backend.Database do
             DB.Reset (Directory, HMAC_Key);
          end return;
       end Create;
@@ -136,21 +125,16 @@ package body Simple_Webapps.Upload_Servers is
    -- HTML Page Constructors --
    ----------------------------
 
-   function Report
-     (F : File;
-      Hash_Name, Digest : String)
-     return AWS.Response.Data
-   is
-      DL_URI : constant String
-        := '/' & F.Download & '/' & To_String (F.Name);
+   function Report (File : Backend.File) return AWS.Response.Data is
+      DL_URI : constant String := '/' & File.Download & '/' & File.Name;
    begin
       return AWS.Response.Build
         ("text/html",
          "<html><head><title>File Report</title></head>"
          & "<body><h1>File Report</h1>"
          & "<ul>"
-         & "<li>Uploaded as " & To_String (F.Name) & "</li>"
-         & "<li>" & Hash_Name & " digest: " & Digest & "</li>"
+         & "<li>Uploaded as " & File.Name & "</li>"
+         & "<li>" & File.Hash_Type & " digest: " & File.Hex_Digest & "</li>"
          & "<li>Download link: <a href=""" & DL_URI & """>"
          & DL_URI & "</a></li>"
          & "<p><a href=""/"">Back to upload page</a></p>"
@@ -158,7 +142,7 @@ package body Simple_Webapps.Upload_Servers is
    end Report;
 
 
-   function Upload_Form (DB : Database) return AWS.Response.Data is
+   function Upload_Form (DB : Backend.Database) return AWS.Response.Data is
       pragma Unreferenced (DB);
    begin
       return AWS.Response.Build
