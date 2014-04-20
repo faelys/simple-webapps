@@ -124,15 +124,11 @@ package body Backend is
       end Download;
 
 
-      procedure Post_File
-        (Request : in AWS.Status.Data;
+      procedure Add_File
+        (Local_Path : in String;
+         Name : in String;
          Report : out URI_Key)
       is
-         Parameters : constant AWS.Parameters.List
-           := AWS.Status.Parameters (Request);
-         Local_Path : constant String
-           := AWS.Parameters.Get (Parameters, "file");
-         Name : constant String := AWS.Parameters.Get (Parameters, "file", 2);
          Download : URI_Key;
 
          function Create return File_Data;
@@ -190,7 +186,7 @@ package body Backend is
             Files.Reports.Insert (Report, F);
             Files.Downloads.Insert (Download, F);
          end Insert_Ref;
-      end Post_File;
+      end Add_File;
 
 
       procedure Reset

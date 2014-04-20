@@ -45,9 +45,14 @@ package body Simple_Webapps.Upload_Servers is
       case AWS.Status.Method (Request) is
          when AWS.Status.POST =>
             declare
+               Parameters : constant AWS.Parameters.List
+                 := AWS.Status.Parameters (Request);
                Report : URI_Key;
             begin
-               Dispatcher.DB.Update.Data.Post_File (Request, Report);
+               Dispatcher.DB.Update.Data.Add_File
+                 (AWS.Parameters.Get (Parameters, "file"),
+                  AWS.Parameters.Get (Parameters, "file", 2),
+                  Report);
                return AWS.Response.URL ('/' & Report);
             end;
 

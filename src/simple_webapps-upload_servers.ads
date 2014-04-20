@@ -82,10 +82,11 @@ private
 
          function Download (Key : URI_Key) return File;
 
-         procedure Post_File
-           (Request : in AWS.Status.Data;
+         procedure Add_File
+           (Local_Path : in String;
+            Name : in String;
             Report : out URI_Key);
-            --  Process Request to add a new file to the Database
+            --  Add a new file to the internal database
 
          procedure Reset
            (New_Directory : in String;
