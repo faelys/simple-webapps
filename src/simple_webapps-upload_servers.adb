@@ -19,9 +19,9 @@ with Ada.Directories;
 with AWS.Messages;
 with AWS.Parameters;
 
-package body Simple_Webapps.Upload_Servers is
+with Natools.S_Expressions.File_Readers;
 
-   package S_Expressions renames Natools.S_Expressions;
+package body Simple_Webapps.Upload_Servers is
 
    package body Backend is separate;
 
@@ -109,15 +109,17 @@ package body Simple_Webapps.Upload_Servers is
 
    procedure Reset
      (Dispatcher : in out Handler;
-      Directory : in String;
-      HMAC_Key : in String)
+      Config_File : in String)
    is
       function Create return Backend.Database;
+
+      Reader : S_Expressions.File_Readers.S_Reader
+        := S_Expressions.File_Readers.Reader (Config_File);
 
       function Create return Backend.Database is
       begin
          return DB : Backend.Database do
-            DB.Reset (Directory, HMAC_Key);
+            DB.Reset (Reader);
          end return;
       end Create;
    begin

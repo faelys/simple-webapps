@@ -35,6 +35,7 @@ private with Ada.Strings.Unbounded;
 private with Natools.References;
 private with Natools.Storage_Pools;
 private with Natools.S_Expressions.Atom_Buffers;
+private with Natools.S_Expressions.Lockable;
 
 package Simple_Webapps.Upload_Servers is
 
@@ -49,10 +50,11 @@ package Simple_Webapps.Upload_Servers is
 
    procedure Reset
      (Dispatcher : in out Handler;
-      Directory : in String;
-      HMAC_Key : in String);
+      Config_File : in String);
 
 private
+
+   package S_Expressions renames Natools.S_Expressions;
 
    subtype String_Holder is Ada.Strings.Unbounded.Unbounded_String;
    function Hold (S : String) return String_Holder
@@ -76,6 +78,7 @@ private
       function Hex_Digest (Self : File) return String;
 
       type File_Set is private;
+      type Config_Data is private;
 
       protected type Database is
          function Report (Key : URI_Key) return File;
@@ -89,12 +92,10 @@ private
             --  Add a new file to the internal database
 
          procedure Reset
-           (New_Directory : in String;
-            New_HMAC_Key : in String);
+           (New_Config : in out S_Expressions.Lockable.Descriptor'Class);
             --  Reset database to a clean state with the given parameters
       private
-         Directory : Atom_Refs.Immutable_Reference;
-         HMAC_Key : String_Holder;
+         Config : Config_Data;
          Files : File_Set;
       end Database;
 
@@ -126,6 +127,17 @@ private
       type File_Set is record
          Reports : File_Maps.Map;
          Downloads : File_Maps.Map;
+      end record;
+
+      procedure Read
+        (Self : out File_Set;
+         Input : in out S_Expressions.Lockable.Descriptor'Class;
+         Directory : in Atom_Refs.Immutable_Reference);
+
+      type Config_Data is record
+         Storage_File : String_Holder;
+         Directory : Atom_Refs.Immutable_Reference;
+         HMAC_Key : String_Holder;
       end record;
 
    end Backend;

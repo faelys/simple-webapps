@@ -21,6 +21,9 @@ with GNAT.SHA1;
 with Natools.GNAT_HMAC;
 with Natools.GNAT_HMAC.SHA1;
 with Natools.S_Expressions.Encodings;
+with Natools.S_Expressions.File_Readers;
+with Natools.S_Expressions.Interpreters;
+with Natools.S_Expressions.Printers;
 
 separate (Simple_Webapps.Upload_Servers)
 package body Backend is
@@ -32,6 +35,288 @@ package body Backend is
    Digit_62 : constant Ada.Streams.Stream_Element := Character'Pos ('-');
    Digit_63 : constant Ada.Streams.Stream_Element := Character'Pos ('_');
       --  Special digits for base-64 URI (RFC 4648)
+
+   procedure Write
+     (Self : in File_Data;
+      Output : in out S_Expressions.Printers.Printer'Class);
+      --  Serialize the given file data into Output
+
+
+   --------------------
+   -- File Entry I/O --
+   --------------------
+
+   package File_Interpreters is new Natools.S_Expressions.Interpreters
+     (Shared_State => File_Data,
+      Shared_Context => Boolean);
+
+   function File_Interpreter return File_Interpreters.Interpreter;
+
+
+   package File_Commands is
+      type Single_Value is abstract new File_Interpreters.Command
+        with null record;
+
+      not overriding procedure Simple_Execute
+        (Self : in out Single_Value;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom)
+        is abstract;
+
+      overriding procedure Execute
+        (Self : in out Single_Value;
+         State : in out File_Data;
+         Context : in Boolean;
+         Cmd : in out S_Expressions.Lockable.Descriptor'Class);
+
+      type Set_Name is new Single_Value with null record;
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Name;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom);
+
+      type Set_Download is new Single_Value with null record;
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Download;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom);
+   end File_Commands;
+
+
+   package body File_Commands is
+
+      overriding procedure Execute
+        (Self : in out Single_Value;
+         State : in out File_Data;
+         Context : in Boolean;
+         Cmd : in out S_Expressions.Lockable.Descriptor'Class)
+      is
+         use type S_Expressions.Events.Event;
+
+         Event : S_Expressions.Events.Event;
+      begin
+         Cmd.Next (Event);
+
+         if Event /= S_Expressions.Events.Add_Atom then
+            return;
+         end if;
+
+         Simple_Execute
+           (Single_Value'Class (Self), State, Context, Cmd.Current_Atom);
+      end Execute;
+
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Name;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom)
+      is
+         pragma Unreferenced (Self, Context);
+      begin
+         State.Name := Hold (S_Expressions.To_String (Value));
+      end Simple_Execute;
+
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Download;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom)
+      is
+         pragma Unreferenced (Self, Context);
+      begin
+         if State.Download'Length = Value'Length then
+            State.Download := S_Expressions.To_String (Value);
+         end if;
+      end Simple_Execute;
+   end File_Commands;
+
+
+   function File_Interpreter return File_Interpreters.Interpreter is
+      Result : File_Interpreters.Interpreter;
+   begin
+      Result.Add_Command
+        (S_Expressions.To_Atom ("name"),
+         File_Commands.Set_Name'(null record));
+      Result.Add_Command
+        (S_Expressions.To_Atom ("download-key"),
+         File_Commands.Set_Download'(null record));
+      Result.Add_Command
+        (S_Expressions.To_Atom ("error"),
+         File_Interpreters.Do_Nothing);
+
+      Result.Set_Fallback (S_Expressions.To_Atom ("error"));
+      return Result;
+   end File_Interpreter;
+
+
+   procedure Write
+     (Self : in File_Data;
+      Output : in out S_Expressions.Printers.Printer'Class) is
+   begin
+      Output.Open_List;
+      Output.Append_Atom (S_Expressions.To_Atom (Self.Report));
+      Output.Open_List;
+      Output.Append_Atom (S_Expressions.To_Atom ("name"));
+      Output.Append_Atom (S_Expressions.To_Atom (To_String (Self.Name)));
+      Output.Close_List;
+      Output.Open_List;
+      Output.Append_Atom (S_Expressions.To_Atom ("download-key"));
+      Output.Append_Atom (S_Expressions.To_Atom (Self.Download));
+      Output.Close_List;
+      Output.Close_List;
+   end Write;
+
+
+
+   -------------------------
+   -- Database Config I/O --
+   -------------------------
+
+   package Config_Interpreters is new Natools.S_Expressions.Interpreters
+     (Shared_State => Config_Data,
+      Shared_Context => Boolean);
+
+   function Config_Interpreter return Config_Interpreters.Interpreter;
+
+
+   package Config_Commands is
+      type Single_Value is abstract new Config_Interpreters.Command
+        with null record;
+
+      not overriding procedure Simple_Execute
+        (Self : in out Single_Value;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom)
+        is abstract;
+
+      overriding procedure Execute
+        (Self : in out Single_Value;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Cmd : in out S_Expressions.Lockable.Descriptor'Class);
+
+      type Set_Storage_File is new Single_Value with null record;
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Storage_File;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom);
+
+      type Set_Directory is new Single_Value with null record;
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Directory;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom);
+
+      type Set_HMAC_Key is new Single_Value with null record;
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_HMAC_Key;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom);
+   end Config_Commands;
+
+
+   package body Config_Commands is
+
+      overriding procedure Execute
+        (Self : in out Single_Value;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Cmd : in out S_Expressions.Lockable.Descriptor'Class)
+      is
+         use type S_Expressions.Events.Event;
+
+         Event : S_Expressions.Events.Event;
+      begin
+         Cmd.Next (Event);
+
+         if Event /= S_Expressions.Events.Add_Atom then
+            return;
+         end if;
+
+         Simple_Execute
+           (Single_Value'Class (Self), State, Context, Cmd.Current_Atom);
+      end Execute;
+
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Storage_File;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom)
+      is
+         pragma Unreferenced (Self, Context);
+      begin
+         State.Storage_File := Hold (S_Expressions.To_String (Value));
+      end Simple_Execute;
+
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Directory;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom)
+      is
+         pragma Unreferenced (Self, Context);
+
+         function Create return S_Expressions.Atom;
+
+         function Create return S_Expressions.Atom is
+         begin
+            return Value;
+         end Create;
+      begin
+         State.Directory := Atom_Refs.Create (Create'Access);
+      end Simple_Execute;
+
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_HMAC_Key;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom)
+      is
+         pragma Unreferenced (Self, Context);
+      begin
+         State.HMAC_Key := Hold (S_Expressions.To_String (Value));
+      end Simple_Execute;
+
+   end Config_Commands;
+
+
+   function Config_Interpreter return Config_Interpreters.Interpreter is
+      Result : Config_Interpreters.Interpreter;
+   begin
+      Result.Add_Command
+        (S_Expressions.To_Atom ("backend"),
+         Config_Commands.Set_Storage_File'(null record));
+      Result.Add_Command
+        (S_Expressions.To_Atom ("directory"),
+         Config_Commands.Set_Directory'(null record));
+      Result.Add_Command
+        (S_Expressions.To_Atom ("hmac-key"),
+         Config_Commands.Set_HMAC_Key'(null record));
+      Result.Add_Command
+        (S_Expressions.To_Atom ("error"),
+         Config_Interpreters.Do_Nothing);
+
+      Result.Set_Fallback (S_Expressions.To_Atom ("error"));
+      return Result;
+   end Config_Interpreter;
+
 
 
    --------------------
@@ -100,6 +385,81 @@ package body Backend is
    end Hex_Digest;
 
 
+
+   ----------------------
+   -- S-Expression I/O --
+   ----------------------
+
+   procedure Read
+     (Self : out File_Set;
+      Input : in out S_Expressions.Lockable.Descriptor'Class;
+      Directory : in Atom_Refs.Immutable_Reference)
+   is
+      use type S_Expressions.Events.Event;
+      Event : S_Expressions.Events.Event := Input.Current_Event;
+
+      Empty_Data : constant File_Data
+        := (Name => Hold (""),
+            Report | Download => (others => ' '),
+            Directory => Directory);
+      Data : File_Data;
+      F : File;
+
+      function Create return File_Data;
+
+      function Create return File_Data is
+      begin
+         return Data;
+      end Create;
+
+      Interpreter : File_Interpreters.Interpreter := File_Interpreter;
+      Lock : S_Expressions.Lockable.Lock_State;
+   begin
+      Self.Reports.Clear;
+      Self.Downloads.Clear;
+
+      loop
+         case Event is
+            when S_Expressions.Events.Open_List =>
+               Input.Next (Event);
+               if Event = S_Expressions.Events.Add_Atom
+                 and then Input.Current_Atom'Length = Data.Report'Length
+               then
+                  Data := Empty_Data;
+                  Data.Report := S_Expressions.To_String (Input.Current_Atom);
+                  Input.Lock (Lock);
+                  Input.Next;
+                  Interpreter.Execute (Input, Data, True);
+                  Input.Unlock (Lock);
+
+                  if Data.Download /= Empty_Data.Download
+                    and then not Self.Reports.Contains (Data.Report)
+                    and then not Self.Downloads.Contains (Data.Download)
+                  then
+                     F := (Ref => File_Refs.Create (Create'Access));
+                     Self.Reports.Insert (Data.Report, F);
+                     Self.Downloads.Insert (Data.Download, F);
+                  end if;
+               end if;
+
+            when S_Expressions.Events.Close_List
+              | S_Expressions.Events.Add_Atom =>
+               null;
+
+            when S_Expressions.Events.End_Of_Input
+              | S_Expressions.Events.Error =>
+               exit;
+         end case;
+         Input.Next (Event);
+      end loop;
+   end Read;
+
+
+
+   -----------------------------
+   -- Database Implementation --
+   -----------------------------
+
    protected body Database is
 
       function Report (Key : URI_Key) return File is
@@ -139,7 +499,7 @@ package body Backend is
               (Name => Hold (Name),
                Report => Report,
                Download => Download,
-               Directory => Directory);
+               Directory => Config.Directory);
          end Create;
       begin
          Compute_Hash :
@@ -166,7 +526,7 @@ package body Backend is
 
          Save_File :
          declare
-            Target_Path : constant String := Path (Directory, Report);
+            Target_Path : constant String := Path (Config.Directory, Report);
          begin
             Ada.Directories.Copy_File (Local_Path, Target_Path);
          end Save_File;
@@ -174,10 +534,32 @@ package body Backend is
          Download := S_Expressions.To_String
            (S_Expressions.Encodings.Encode_Base64
               (HMAC.Digest
-                 (To_String (HMAC_Key),
+                 (To_String (Config.HMAC_Key),
                   S_Expressions.To_Atom (Report)),
                Digit_62,
                Digit_63));
+
+         Write_DB :
+         declare
+            package Stream_IO renames Ada.Streams.Stream_IO;
+            Output : Stream_IO.File_Type;
+         begin
+            Stream_IO.Open
+              (Output,
+               Stream_IO.Append_File,
+               To_String (Config.Storage_File));
+
+            Printer_Block :
+            declare
+               Printer : S_Expressions.Printers.Canonical
+                 (Stream_IO.Stream (Output));
+            begin
+               Write (Create, Printer);
+            end Printer_Block;
+
+            Stream_IO.Close (Output);
+         end Write_DB;
+
 
          Insert_Ref :
          declare
@@ -190,20 +572,36 @@ package body Backend is
 
 
       procedure Reset
-        (New_Directory : in String;
-         New_HMAC_Key : in String)
+        (New_Config : in out S_Expressions.Lockable.Descriptor'Class)
       is
-         function Create return S_Expressions.Atom;
+         use type Ada.Directories.File_Kind;
 
-         function Create return S_Expressions.Atom is
-         begin
-            return S_Expressions.To_Atom (New_Directory);
-         end Create;
+         New_Data : Config_Data
+           := (Storage_File => Hold ("/"),
+               Directory => Atom_Refs.Null_Immutable_Reference,
+               HMAC_Key => Hold (""));
+         Interpreter : Config_Interpreters.Interpreter := Config_Interpreter;
       begin
-         Directory := Atom_Refs.Create (Create'Access);
-         HMAC_Key := Hold (New_HMAC_Key);
-         Files.Reports.Clear;
-         Files.Downloads.Clear;
+         Interpreter.Execute (New_Config, New_Data, True);
+
+         if New_Data.Directory.Is_Empty
+           or else To_String (New_Data.HMAC_Key) = ""
+           or else not Ada.Directories.Exists
+              (To_String (New_Data.Storage_File))
+           or else Ada.Directories.Kind (To_String (New_Data.Storage_File))
+              /= Ada.Directories.Ordinary_File
+         then
+            return;
+         end if;
+
+         declare
+            Storage : S_Expressions.File_Readers.S_Reader
+              := S_Expressions.File_Readers.Reader
+                 (To_String (New_Data.Storage_File));
+         begin
+            Read (Files, Storage, New_Data.Directory);
+         end;
+         Config := New_Data;
       end Reset;
 
    end Database;

@@ -25,7 +25,7 @@ procedure Upload_Server is
    WS : AWS.Server.HTTP;
    Handler : Simple_Webapps.Upload_Servers.Handler;
 begin
-   Handler.Reset ("/home/nat/tmp/upload", "Câlins");
+   Handler.Reset ("upload.sx");
    AWS.Server.Start (WS, Handler, AWS.Config.Get_Current);
    Ada.Text_IO.Put_Line ("Websever started");
    AWS.Server.Wait (AWS.Server.Q_Key_Pressed);
