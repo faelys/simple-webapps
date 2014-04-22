@@ -17,4 +17,7 @@
 package Simple_Webapps is
    pragma Pure (Simple_Webapps);
 
+   function HTML_Escape (Unsafe_Input : String) return String;
+      --  Escape angle brackets, quotes and ampersands
+
 end Simple_Webapps;
