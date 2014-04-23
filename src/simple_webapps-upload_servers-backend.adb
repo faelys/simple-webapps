@@ -78,6 +78,14 @@ package body Backend is
          Context : in Boolean;
          Value : in S_Expressions.Atom);
 
+      type Set_Comment is new Single_Value with null record;
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Comment;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom);
+
       type Set_Download is new Single_Value with null record;
 
       overriding procedure Simple_Execute
@@ -124,6 +132,18 @@ package body Backend is
 
 
       overriding procedure Simple_Execute
+        (Self : in out Set_Comment;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in S_Expressions.Atom)
+      is
+         pragma Unreferenced (Self, Context);
+      begin
+         State.Comment := Hold (S_Expressions.To_String (Value));
+      end Simple_Execute;
+
+
+      overriding procedure Simple_Execute
         (Self : in out Set_Download;
          State : in out File_Data;
          Context : in Boolean;
@@ -145,6 +165,9 @@ package body Backend is
         (S_Expressions.To_Atom ("name"),
          File_Commands.Set_Name'(null record));
       Result.Add_Command
+        (S_Expressions.To_Atom ("comment"),
+         File_Commands.Set_Comment'(null record));
+      Result.Add_Command
         (S_Expressions.To_Atom ("download-key"),
          File_Commands.Set_Download'(null record));
       Result.Add_Command
@@ -165,6 +188,10 @@ package body Backend is
       Output.Open_List;
       Output.Append_Atom (S_Expressions.To_Atom ("name"));
       Output.Append_Atom (S_Expressions.To_Atom (To_String (Self.Name)));
+      Output.Close_List;
+      Output.Open_List;
+      Output.Append_Atom (S_Expressions.To_Atom ("comment"));
+      Output.Append_Atom (S_Expressions.To_Atom (To_String (Self.Comment)));
       Output.Close_List;
       Output.Open_List;
       Output.Append_Atom (S_Expressions.To_Atom ("download-key"));
@@ -335,6 +362,12 @@ package body Backend is
    end Name;
 
 
+   function Comment (Self : File) return String is
+   begin
+      return To_String (Self.Ref.Query.Data.Comment);
+   end Comment;
+
+
    function Path
      (Directory : Atom_Refs.Immutable_Reference;
       Report : URI_Key)
@@ -399,7 +432,7 @@ package body Backend is
       Event : S_Expressions.Events.Event := Input.Current_Event;
 
       Empty_Data : constant File_Data
-        := (Name => Hold (""),
+        := (Name | Comment => Hold (""),
             Report | Download => (others => ' '),
             Directory => Directory);
       Data : File_Data;
@@ -487,6 +520,7 @@ package body Backend is
       procedure Add_File
         (Local_Path : in String;
          Name : in String;
+         Comment : in String;
          Report : out URI_Key)
       is
          Download : URI_Key;
@@ -497,6 +531,7 @@ package body Backend is
          begin
             return
               (Name => Hold (Name),
+               Comment => Hold (Comment),
                Report => Report,
                Download => Download,
                Directory => Config.Directory);

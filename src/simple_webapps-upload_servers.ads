@@ -72,6 +72,7 @@ private
       function Is_Empty (Self : File) return Boolean;
       function Name (Self : File) return String;
       function Path (Self : File) return String;
+      function Comment (Self : File) return String;
       function Report (Self : File) return URI_Key;
       function Download (Self : File) return URI_Key;
       function Hash_Type (Self : File) return String;
@@ -88,6 +89,7 @@ private
          procedure Add_File
            (Local_Path : in String;
             Name : in String;
+            Comment : in String;
             Report : out URI_Key);
             --  Add a new file to the internal database
 
@@ -108,6 +110,7 @@ private
 
       type File_Data is record
          Name : String_Holder;
+         Comment : String_Holder;
          Report : URI_Key;
          Download : URI_Key;
          Directory : Atom_Refs.Immutable_Reference;

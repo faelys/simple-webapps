@@ -52,6 +52,7 @@ package body Simple_Webapps.Upload_Servers is
                Dispatcher.DB.Update.Data.Add_File
                  (AWS.Parameters.Get (Parameters, "file"),
                   AWS.Parameters.Get (Parameters, "file", 2),
+                  AWS.Parameters.Get (Parameters, "comment"),
                   Report);
                return AWS.Response.URL ('/' & Report);
             end;
@@ -144,6 +145,8 @@ package body Simple_Webapps.Upload_Servers is
          & "<li>" & File.Hash_Type & " digest: " & File.Hex_Digest & "</li>"
          & "<li>Download link: <a href=""" & DL_URI & """>"
          & DL_URI & "</a></li>"
+         & "<li>Comment: " & HTML_Escape (File.Comment) & "</li>"
+         & "</ul>"
          & "<p><a href=""/"">Back to upload page</a></p>"
          & "</body></html>");
    end Report;
@@ -159,6 +162,7 @@ package body Simple_Webapps.Upload_Servers is
          & "<form enctype=""multipart/form-data"" action=""/post"""
          & " method=""post"">"
          & "<p><input name=""file"" type=""file""></p>"
+         & "<p><textarea name=""comment"" cols=""80"" rows=""10""></textarea>"
          & "<p><input name=""submit"" value=""Send"""
          & " type=""submit""></p>"
          & "</form></body></html>");
