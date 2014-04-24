@@ -1,0 +1,3 @@
+(backend "/home/nat/tmp/upload/database.sx")
+(directory "/home/nat/tmp/upload")
+(hmac-key "Câlins")
