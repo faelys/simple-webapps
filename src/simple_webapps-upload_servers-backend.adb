@@ -61,7 +61,7 @@ package body Backend is
         (Self : in out Single_Value;
          State : in out File_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom)
+         Value : in String)
         is abstract;
 
       overriding procedure Execute
@@ -76,7 +76,7 @@ package body Backend is
         (Self : in out Set_Name;
          State : in out File_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom);
+         Value : in String);
 
       type Set_Comment is new Single_Value with null record;
 
@@ -84,7 +84,7 @@ package body Backend is
         (Self : in out Set_Comment;
          State : in out File_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom);
+         Value : in String);
 
       type Set_Download is new Single_Value with null record;
 
@@ -92,7 +92,7 @@ package body Backend is
         (Self : in out Set_Download;
          State : in out File_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom);
+         Value : in String);
    end File_Commands;
 
 
@@ -115,7 +115,8 @@ package body Backend is
          end if;
 
          Simple_Execute
-           (Single_Value'Class (Self), State, Context, Cmd.Current_Atom);
+           (Single_Value'Class (Self), State, Context,
+            S_Expressions.To_String (Cmd.Current_Atom));
       end Execute;
 
 
@@ -123,11 +124,11 @@ package body Backend is
         (Self : in out Set_Name;
          State : in out File_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom)
+         Value : in String)
       is
          pragma Unreferenced (Self, Context);
       begin
-         State.Name := Hold (S_Expressions.To_String (Value));
+         State.Name := Hold (Value);
       end Simple_Execute;
 
 
@@ -135,11 +136,11 @@ package body Backend is
         (Self : in out Set_Comment;
          State : in out File_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom)
+         Value : in String)
       is
          pragma Unreferenced (Self, Context);
       begin
-         State.Comment := Hold (S_Expressions.To_String (Value));
+         State.Comment := Hold (Value);
       end Simple_Execute;
 
 
@@ -147,12 +148,12 @@ package body Backend is
         (Self : in out Set_Download;
          State : in out File_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom)
+         Value : in String)
       is
          pragma Unreferenced (Self, Context);
       begin
          if State.Download'Length = Value'Length then
-            State.Download := S_Expressions.To_String (Value);
+            State.Download := Value;
          end if;
       end Simple_Execute;
    end File_Commands;
@@ -221,7 +222,7 @@ package body Backend is
         (Self : in out Single_Value;
          State : in out Config_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom)
+         Value : in String)
         is abstract;
 
       overriding procedure Execute
@@ -236,7 +237,7 @@ package body Backend is
         (Self : in out Set_Storage_File;
          State : in out Config_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom);
+         Value : in String);
 
       type Set_Directory is new Single_Value with null record;
 
@@ -244,7 +245,7 @@ package body Backend is
         (Self : in out Set_Directory;
          State : in out Config_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom);
+         Value : in String);
 
       type Set_HMAC_Key is new Single_Value with null record;
 
@@ -252,7 +253,7 @@ package body Backend is
         (Self : in out Set_HMAC_Key;
          State : in out Config_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom);
+         Value : in String);
    end Config_Commands;
 
 
@@ -275,7 +276,8 @@ package body Backend is
          end if;
 
          Simple_Execute
-           (Single_Value'Class (Self), State, Context, Cmd.Current_Atom);
+           (Single_Value'Class (Self), State, Context,
+            S_Expressions.To_String (Cmd.Current_Atom));
       end Execute;
 
 
@@ -283,11 +285,11 @@ package body Backend is
         (Self : in out Set_Storage_File;
          State : in out Config_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom)
+         Value : in String)
       is
          pragma Unreferenced (Self, Context);
       begin
-         State.Storage_File := Hold (S_Expressions.To_String (Value));
+         State.Storage_File := Hold (Value);
       end Simple_Execute;
 
 
@@ -295,7 +297,7 @@ package body Backend is
         (Self : in out Set_Directory;
          State : in out Config_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom)
+         Value : in String)
       is
          pragma Unreferenced (Self, Context);
 
@@ -303,7 +305,7 @@ package body Backend is
 
          function Create return S_Expressions.Atom is
          begin
-            return Value;
+            return S_Expressions.To_Atom (Value);
          end Create;
       begin
          State.Directory := Atom_Refs.Create (Create'Access);
@@ -314,11 +316,11 @@ package body Backend is
         (Self : in out Set_HMAC_Key;
          State : in out Config_Data;
          Context : in Boolean;
-         Value : in S_Expressions.Atom)
+         Value : in String)
       is
          pragma Unreferenced (Self, Context);
       begin
-         State.HMAC_Key := Hold (S_Expressions.To_String (Value));
+         State.HMAC_Key := Hold (Value);
       end Simple_Execute;
 
    end Config_Commands;
