@@ -93,6 +93,14 @@ package body Backend is
          State : in out File_Data;
          Context : in Boolean;
          Value : in String);
+
+      type Set_MIME_Type is new Single_Value with null record;
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_MIME_Type;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in String);
    end File_Commands;
 
 
@@ -156,6 +164,18 @@ package body Backend is
             State.Download := Value;
          end if;
       end Simple_Execute;
+
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_MIME_Type;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in String)
+      is
+         pragma Unreferenced (Self, Context);
+      begin
+         State.MIME_Type := Hold (Value);
+      end Simple_Execute;
    end File_Commands;
 
 
@@ -171,6 +191,9 @@ package body Backend is
       Result.Add_Command
         (S_Expressions.To_Atom ("download-key"),
          File_Commands.Set_Download'(null record));
+      Result.Add_Command
+        (S_Expressions.To_Atom ("mime-type"),
+         File_Commands.Set_MIME_Type'(null record));
       Result.Add_Command
         (S_Expressions.To_Atom ("error"),
          File_Interpreters.Do_Nothing);
@@ -197,6 +220,10 @@ package body Backend is
       Output.Open_List;
       Output.Append_Atom (S_Expressions.To_Atom ("download-key"));
       Output.Append_Atom (S_Expressions.To_Atom (Self.Download));
+      Output.Close_List;
+      Output.Open_List;
+      Output.Append_Atom (S_Expressions.To_Atom ("mime-type"));
+      Output.Append_Atom (S_Expressions.To_Atom (To_String (Self.MIME_Type)));
       Output.Close_List;
       Output.Close_List;
    end Write;
@@ -370,6 +397,12 @@ package body Backend is
    end Comment;
 
 
+   function MIME_Type (Self : File) return String is
+   begin
+      return To_String (Self.Ref.Query.Data.MIME_Type);
+   end MIME_Type;
+
+
    function Path
      (Directory : Atom_Refs.Immutable_Reference;
       Report : URI_Key)
@@ -434,7 +467,7 @@ package body Backend is
       Event : S_Expressions.Events.Event := Input.Current_Event;
 
       Empty_Data : constant File_Data
-        := (Name | Comment => Hold (""),
+        := (Name | Comment | MIME_Type => Hold (""),
             Report | Download => (others => ' '),
             Directory => Directory);
       Data : File_Data;
@@ -523,6 +556,7 @@ package body Backend is
         (Local_Path : in String;
          Name : in String;
          Comment : in String;
+         MIME_Type : in String;
          Report : out URI_Key)
       is
          Download : URI_Key;
@@ -534,6 +568,7 @@ package body Backend is
             return
               (Name => Hold (Name),
                Comment => Hold (Comment),
+               MIME_Type => Hold (MIME_Type),
                Report => Report,
                Download => Download,
                Directory => Config.Directory);

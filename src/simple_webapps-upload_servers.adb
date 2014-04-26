@@ -16,6 +16,7 @@
 
 with Ada.Directories;
 
+with AWS.Attachments;
 with AWS.Messages;
 with AWS.Parameters;
 
@@ -45,14 +46,26 @@ package body Simple_Webapps.Upload_Servers is
       case AWS.Status.Method (Request) is
          when AWS.Status.POST =>
             declare
+               Attachments : constant AWS.Attachments.List
+                 := AWS.Status.Attachments (Request);
+               File_Att : constant AWS.Attachments.Element
+                 := AWS.Attachments.Get (Attachments, 1);
                Parameters : constant AWS.Parameters.List
                  := AWS.Status.Parameters (Request);
                Report : URI_Key;
             begin
+               pragma Assert
+                 (AWS.Attachments.Count (Attachments) = 1
+                  and then AWS.Parameters.Get (Parameters, "file")
+                    = AWS.Attachments.Local_Filename (File_Att)
+                  and then AWS.Parameters.Get (Parameters, "file", 2)
+                    = AWS.Attachments.Filename (File_Att));
+
                Dispatcher.DB.Update.Data.Add_File
                  (AWS.Parameters.Get (Parameters, "file"),
                   AWS.Parameters.Get (Parameters, "file", 2),
                   AWS.Parameters.Get (Parameters, "comment"),
+                  AWS.Attachments.Content_Type (File_Att),
                   Report);
                return AWS.Response.URL ('/' & Report);
             end;
@@ -93,8 +106,7 @@ package body Simple_Webapps.Upload_Servers is
          File := Dispatcher.DB.Query.Data.Download (Key);
 
          if not File.Is_Empty then
-            return AWS.Response.File
-              ("application/octet-stream", File.Path);
+            return AWS.Response.File (File.MIME_Type, File.Path);
          else
             return AWS.Response.Acknowledge (AWS.Messages.S404);
          end if;
@@ -142,6 +154,7 @@ package body Simple_Webapps.Upload_Servers is
          & "<body><h1>File Report</h1>"
          & "<ul>"
          & "<li>Uploaded as " & File.Name & "</li>"
+         & "<li>File type: " & File.MIME_Type & "</li>"
          & "<li>" & File.Hash_Type & " digest: " & File.Hex_Digest & "</li>"
          & "<li>Download link: <a href=""" & DL_URI & """>"
          & DL_URI & "</a></li>"

@@ -77,6 +77,7 @@ private
       function Download (Self : File) return URI_Key;
       function Hash_Type (Self : File) return String;
       function Hex_Digest (Self : File) return String;
+      function MIME_Type (Self : File) return String;
 
       type File_Set is private;
       type Config_Data is private;
@@ -90,6 +91,7 @@ private
            (Local_Path : in String;
             Name : in String;
             Comment : in String;
+            MIME_Type : in String;
             Report : out URI_Key);
             --  Add a new file to the internal database
 
@@ -111,6 +113,7 @@ private
       type File_Data is record
          Name : String_Holder;
          Comment : String_Holder;
+         MIME_Type : String_Holder;
          Report : URI_Key;
          Download : URI_Key;
          Directory : Atom_Refs.Immutable_Reference;
