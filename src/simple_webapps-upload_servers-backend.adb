@@ -94,10 +94,26 @@ package body Backend is
          Context : in Boolean;
          Value : in String);
 
+      type Set_Expiration is new Single_Value with null record;
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Expiration;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in String);
+
       type Set_MIME_Type is new Single_Value with null record;
 
       overriding procedure Simple_Execute
         (Self : in out Set_MIME_Type;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in String);
+
+      type Set_Upload is new Single_Value with null record;
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Upload;
          State : in out File_Data;
          Context : in Boolean;
          Value : in String);
@@ -167,6 +183,18 @@ package body Backend is
 
 
       overriding procedure Simple_Execute
+        (Self : in out Set_Expiration;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in String)
+      is
+         pragma Unreferenced (Self, Context);
+      begin
+         State.Expiration := Ada.Calendar.Formatting.Value (Value);
+      end Simple_Execute;
+
+
+      overriding procedure Simple_Execute
         (Self : in out Set_MIME_Type;
          State : in out File_Data;
          Context : in Boolean;
@@ -175,6 +203,18 @@ package body Backend is
          pragma Unreferenced (Self, Context);
       begin
          State.MIME_Type := Hold (Value);
+      end Simple_Execute;
+
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Upload;
+         State : in out File_Data;
+         Context : in Boolean;
+         Value : in String)
+      is
+         pragma Unreferenced (Self, Context);
+      begin
+         State.Upload := Ada.Calendar.Formatting.Value (Value);
       end Simple_Execute;
    end File_Commands;
 
@@ -192,8 +232,14 @@ package body Backend is
         (S_Expressions.To_Atom ("download-key"),
          File_Commands.Set_Download'(null record));
       Result.Add_Command
+        (S_Expressions.To_Atom ("expire"),
+         File_Commands.Set_Expiration'(null record));
+      Result.Add_Command
         (S_Expressions.To_Atom ("mime-type"),
          File_Commands.Set_MIME_Type'(null record));
+      Result.Add_Command
+        (S_Expressions.To_Atom ("upload"),
+         File_Commands.Set_Upload'(null record));
       Result.Add_Command
         (S_Expressions.To_Atom ("error"),
          File_Interpreters.Do_Nothing);
@@ -222,8 +268,18 @@ package body Backend is
       Output.Append_Atom (S_Expressions.To_Atom (Self.Download));
       Output.Close_List;
       Output.Open_List;
+      Output.Append_Atom (S_Expressions.To_Atom ("expire"));
+      Output.Append_Atom (S_Expressions.To_Atom
+        (Ada.Calendar.Formatting.Image (Self.Expiration)));
+      Output.Close_List;
+      Output.Open_List;
       Output.Append_Atom (S_Expressions.To_Atom ("mime-type"));
       Output.Append_Atom (S_Expressions.To_Atom (To_String (Self.MIME_Type)));
+      Output.Close_List;
+      Output.Open_List;
+      Output.Append_Atom (S_Expressions.To_Atom ("upload"));
+      Output.Append_Atom (S_Expressions.To_Atom
+        (Ada.Calendar.Formatting.Image (Self.Upload)));
       Output.Close_List;
       Output.Close_List;
    end Write;
@@ -453,6 +509,27 @@ package body Backend is
    end Hex_Digest;
 
 
+   function Upload (Self : File) return Ada.Calendar.Time is
+   begin
+      return Self.Ref.Query.Data.Upload;
+   end Upload;
+
+
+   function Expiration (Self : File) return Ada.Calendar.Time is
+   begin
+      return Self.Ref.Query.Data.Expiration;
+   end Expiration;
+
+
+   function Expire_Before (Left, Right : File) return Boolean is
+      use type Ada.Calendar.Time;
+   begin
+      return Left.Expiration < Right.Expiration
+        or else (Left.Expiration = Right.Expiration
+          and then Left.Report < Right.Report);
+   end Expire_Before;
+
+
 
    ----------------------
    -- S-Expression I/O --
@@ -464,11 +541,15 @@ package body Backend is
       Directory : in Atom_Refs.Immutable_Reference)
    is
       use type S_Expressions.Events.Event;
+      use type Ada.Calendar.Time;
+
       Event : S_Expressions.Events.Event := Input.Current_Event;
+      Now : constant Ada.Calendar.Time := Ada.Calendar.Clock;
 
       Empty_Data : constant File_Data
         := (Name | Comment | MIME_Type => Hold (""),
             Report | Download => (others => ' '),
+            Upload | Expiration => Now,
             Directory => Directory);
       Data : File_Data;
       F : File;
@@ -485,6 +566,7 @@ package body Backend is
    begin
       Self.Reports.Clear;
       Self.Downloads.Clear;
+      Self.Expires.Clear;
 
       loop
          case Event is
@@ -503,10 +585,12 @@ package body Backend is
                   if Data.Download /= Empty_Data.Download
                     and then not Self.Reports.Contains (Data.Report)
                     and then not Self.Downloads.Contains (Data.Download)
+                    and then Data.Expiration > Now
                   then
                      F := (Ref => File_Refs.Create (Create'Access));
                      Self.Reports.Insert (Data.Report, F);
                      Self.Downloads.Insert (Data.Download, F);
+                     Self.Expires.Insert (F);
                   end if;
                end if;
 
@@ -531,24 +615,38 @@ package body Backend is
    protected body Database is
 
       function Report (Key : URI_Key) return File is
+         use type Ada.Calendar.Time;
+
          Cursor : constant File_Maps.Cursor := Files.Reports.Find (Key);
+         Result : File := (Ref => File_Refs.Null_Immutable_Reference);
       begin
          if File_Maps.Has_Element (Cursor) then
-            return File_Maps.Element (Cursor);
-         else
-            return (Ref => File_Refs.Null_Immutable_Reference);
+            Result := File_Maps.Element (Cursor);
+
+            if Result.Expiration < Ada.Calendar.Clock then
+               Result := (Ref => File_Refs.Null_Immutable_Reference);
+            end if;
          end if;
+
+         return Result;
       end Report;
 
 
       function Download (Key : URI_Key) return File is
+         use type Ada.Calendar.Time;
+
          Cursor : constant File_Maps.Cursor := Files.Downloads.Find (Key);
+         Result : File := (Ref => File_Refs.Null_Immutable_Reference);
       begin
          if File_Maps.Has_Element (Cursor) then
-            return File_Maps.Element (Cursor);
-         else
-            return (Ref => File_Refs.Null_Immutable_Reference);
+            Result := File_Maps.Element (Cursor);
+
+            if Result.Expiration < Ada.Calendar.Clock then
+               Result := (Ref => File_Refs.Null_Immutable_Reference);
+            end if;
          end if;
+
+         return Result;
       end Download;
 
 
@@ -557,6 +655,7 @@ package body Backend is
          Name : in String;
          Comment : in String;
          MIME_Type : in String;
+         Expiration : in Ada.Calendar.Time;
          Report : out URI_Key)
       is
          Download : URI_Key;
@@ -571,9 +670,13 @@ package body Backend is
                MIME_Type => Hold (MIME_Type),
                Report => Report,
                Download => Download,
+               Expiration => Expiration,
+               Upload => Ada.Calendar.Clock,
                Directory => Config.Directory);
          end Create;
       begin
+         Purge_Expired;
+
          Compute_Hash :
          declare
             package Stream_IO renames Ada.Streams.Stream_IO;
@@ -639,8 +742,26 @@ package body Backend is
          begin
             Files.Reports.Insert (Report, F);
             Files.Downloads.Insert (Download, F);
+            Files.Expires.Insert (F);
          end Insert_Ref;
       end Add_File;
+
+
+      procedure Purge_Expired is
+         use type Ada.Calendar.Time;
+         Now : constant Ada.Calendar.Time := Ada.Calendar.Clock;
+         First : File;
+      begin
+         loop
+            exit when Files.Expires.Is_Empty;
+            First := Files.Expires.First_Element;
+            exit when First.Expiration > Now;
+            Files.Reports.Delete (First.Report);
+            Files.Downloads.Delete (First.Download);
+            Files.Expires.Delete (First);
+            Ada.Directories.Delete_File (First.Path);
+         end loop;
+      end Purge_Expired;
 
 
       procedure Reset

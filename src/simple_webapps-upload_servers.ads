@@ -30,7 +30,9 @@ with AWS.Dispatchers;
 with AWS.Status;
 with AWS.Response;
 
+private with Ada.Calendar;
 private with Ada.Containers.Ordered_Maps;
+private with Ada.Containers.Ordered_Sets;
 private with Ada.Strings.Unbounded;
 private with Natools.References;
 private with Natools.Storage_Pools;
@@ -78,6 +80,8 @@ private
       function Hash_Type (Self : File) return String;
       function Hex_Digest (Self : File) return String;
       function MIME_Type (Self : File) return String;
+      function Upload (Self : File) return Ada.Calendar.Time;
+      function Expiration (Self : File) return Ada.Calendar.Time;
 
       type File_Set is private;
       type Config_Data is private;
@@ -92,8 +96,12 @@ private
             Name : in String;
             Comment : in String;
             MIME_Type : in String;
+            Expiration : in Ada.Calendar.Time;
             Report : out URI_Key);
             --  Add a new file to the internal database
+
+         procedure Purge_Expired;
+            --  Remove expired entries from database
 
          procedure Reset
            (New_Config : in out S_Expressions.Lockable.Descriptor'Class);
@@ -116,6 +124,8 @@ private
          MIME_Type : String_Holder;
          Report : URI_Key;
          Download : URI_Key;
+         Upload : Ada.Calendar.Time;
+         Expiration : Ada.Calendar.Time;
          Directory : Atom_Refs.Immutable_Reference;
       end record;
 
@@ -128,11 +138,16 @@ private
          Ref : File_Refs.Immutable_Reference;
       end record;
 
+      function Expire_Before (Left, Right : File) return Boolean;
+
       package File_Maps is new Ada.Containers.Ordered_Maps (URI_Key, File);
+      package Time_Sets is new Ada.Containers.Ordered_Sets
+        (File, Expire_Before);
 
       type File_Set is record
          Reports : File_Maps.Map;
          Downloads : File_Maps.Map;
+         Expires : Time_Sets.Set;
       end record;
 
       procedure Read

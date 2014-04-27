@@ -14,6 +14,7 @@
 -- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.           --
 ------------------------------------------------------------------------------
 
+with Ada.Calendar.Formatting;
 with Ada.Directories;
 
 with AWS.Attachments;
@@ -45,6 +46,11 @@ package body Simple_Webapps.Upload_Servers is
    begin
       case AWS.Status.Method (Request) is
          when AWS.Status.POST =>
+            if AWS.Status.URI (Request) = "/purge" then
+               Dispatcher.DB.Update.Data.Purge_Expired;
+               return AWS.Response.URL ("/");
+            end if;
+
             declare
                Attachments : constant AWS.Attachments.List
                  := AWS.Status.Attachments (Request);
@@ -66,6 +72,7 @@ package body Simple_Webapps.Upload_Servers is
                   AWS.Parameters.Get (Parameters, "file", 2),
                   AWS.Parameters.Get (Parameters, "comment"),
                   AWS.Attachments.Content_Type (File_Att),
+                  Ada.Calendar."+" (Ada.Calendar.Clock, 3600.0),
                   Report);
                return AWS.Response.URL ('/' & Report);
             end;
@@ -156,6 +163,10 @@ package body Simple_Webapps.Upload_Servers is
          & "<li>Uploaded as " & File.Name & "</li>"
          & "<li>File type: " & File.MIME_Type & "</li>"
          & "<li>" & File.Hash_Type & " digest: " & File.Hex_Digest & "</li>"
+         & "<li>Upload date: "
+         & Ada.Calendar.Formatting.Image (File.Upload) & "</li>"
+         & "<li>Expiration date: "
+         & Ada.Calendar.Formatting.Image (File.Expiration) & "</li>"
          & "<li>Download link: <a href=""" & DL_URI & """>"
          & DL_URI & "</a></li>"
          & "<li>Comment: " & HTML_Escape (File.Comment) & "</li>"
@@ -178,6 +189,10 @@ package body Simple_Webapps.Upload_Servers is
          & "<p><textarea name=""comment"" cols=""80"" rows=""10""></textarea>"
          & "<p><input name=""submit"" value=""Send"""
          & " type=""submit""></p>"
+         & "</form>"
+         & "<h2>Maintenance</h2>"
+         & "<form action=""/purge"" method=""post"">"
+         & "<p><input name=""submit"" value=""Purge"" type=""submit""></p>"
          & "</form></body></html>");
    end Upload_Form;
 
