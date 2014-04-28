@@ -91,6 +91,10 @@ private
 
          function Download (Key : URI_Key) return File;
 
+         function Iterate
+           (Process : not null access procedure (F : in File))
+            return Boolean;
+
          procedure Add_File
            (Local_Path : in String;
             Name : in String;

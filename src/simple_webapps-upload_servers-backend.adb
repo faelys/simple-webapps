@@ -649,6 +649,21 @@ package body Backend is
          return Result;
       end Download;
 
+      function Iterate
+        (Process : not null access procedure (F : in File))
+         return Boolean
+      is
+         procedure Local_Process (Position : in Time_Sets.Cursor);
+
+         procedure Local_Process (Position : in Time_Sets.Cursor) is
+         begin
+            Process.all (Time_Sets.Element (Position));
+         end Local_Process;
+      begin
+         Files.Expires.Iterate (Local_Process'Access);
+         return True;
+      end Iterate;
+
 
       procedure Add_File
         (Local_Path : in String;

@@ -27,6 +27,9 @@ package body Simple_Webapps.Upload_Servers is
 
    package body Backend is separate;
 
+   function File_List (DB : Backend.Database) return AWS.Response.Data;
+      --  Create a list of all files
+
    function Report (File : Backend.File) return AWS.Response.Data;
       --  Create a report page for the given file
 
@@ -93,6 +96,8 @@ package body Simple_Webapps.Upload_Servers is
 
          if URI = "/" then
             return Upload_Form (Dispatcher.DB.Query.Data.all);
+         elsif URI = "/list" then
+            return File_List (Dispatcher.DB.Query.Data.all);
          end if;
 
          if URI'Length < Key'Length + 1 then
@@ -151,6 +156,45 @@ package body Simple_Webapps.Upload_Servers is
    ----------------------------
    -- HTML Page Constructors --
    ----------------------------
+
+   function File_List (DB : Backend.Database) return AWS.Response.Data is
+      Table : Ada.Strings.Unbounded.Unbounded_String;
+
+      procedure Process (File : in Backend.File);
+
+      procedure Process (File : in Backend.File) is
+      begin
+         Ada.Strings.Unbounded.Append
+           (Table,
+            "<tr>"
+            & "<td><a href=""/" & File.Report & """>"
+            & File.Report & "</a></td>"
+            & "<td>" & HTML_Escape (File.Name) & "</td>"
+            & "<td>" & Ada.Calendar.Formatting.Image
+                         (File.Expiration) & "</td>"
+            & "</tr>");
+      end Process;
+
+      Result : Boolean;
+      pragma Unreferenced (Result);
+   begin
+      Result := DB.Iterate (Process'Access);
+
+      return AWS.Response.Build
+        ("text/html",
+         "<html><head><title>File List</title></head>"
+         & "<body><h1>File List</h1>"
+         & "<table><tr>"
+         & "<th>Link</th>"
+         & "<th>File name</th>"
+         & "<th>Expiration</th>"
+         & "</tr>"
+         & Ada.Strings.Unbounded.To_String (Table)
+         & "</table>"
+         & "<p><a href=""/"">Back to upload page</a></p>"
+         & "</body></html>");
+   end File_List;
+
 
    function Report (File : Backend.File) return AWS.Response.Data is
       DL_URI : constant String := '/' & File.Download & '/' & File.Name;
