@@ -31,6 +31,7 @@ with AWS.Status;
 with AWS.Response;
 
 private with Ada.Calendar;
+private with Ada.Containers.Doubly_Linked_Lists;
 private with Ada.Containers.Ordered_Maps;
 private with Ada.Containers.Ordered_Sets;
 private with Ada.Strings.Unbounded;
@@ -86,6 +87,13 @@ private
       type File_Set is private;
       type Config_Data is private;
 
+      type Log_Entry is record
+         Time : Ada.Calendar.Time;
+         Message : String_Holder;
+      end record;
+
+      package Log_Lists is new Ada.Containers.Doubly_Linked_Lists (Log_Entry);
+
       protected type Database is
          function Report (Key : URI_Key) return File;
 
@@ -93,6 +101,12 @@ private
 
          function Iterate
            (Process : not null access procedure (F : in File))
+            return Boolean;
+
+         function Iterate_Logs
+           (Process : not null access procedure
+              (Time : in Ada.Calendar.Time;
+               Message : in String))
             return Boolean;
 
          procedure Add_File
@@ -104,6 +118,9 @@ private
             Report : out URI_Key);
             --  Add a new file to the internal database
 
+         procedure Log (Message : in String);
+            --  Add an entry to the internal event log
+
          procedure Purge_Expired;
             --  Remove expired entries from database
 
@@ -113,6 +130,7 @@ private
       private
          Config : Config_Data;
          Files : File_Set;
+         Logs : Log_Lists.List;
       end Database;
 
    private

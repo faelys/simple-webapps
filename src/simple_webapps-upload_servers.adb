@@ -33,6 +33,9 @@ package body Simple_Webapps.Upload_Servers is
    function Report (File : Backend.File) return AWS.Response.Data;
       --  Create a report page for the given file
 
+   function Server_Log (DB : Backend.Database) return AWS.Response.Data;
+      --  Create a list of recent server event log entries
+
    function Upload_Form (DB : Backend.Database) return AWS.Response.Data;
       --  Create the main upload form
 
@@ -98,6 +101,8 @@ package body Simple_Webapps.Upload_Servers is
             return Upload_Form (Dispatcher.DB.Query.Data.all);
          elsif URI = "/list" then
             return File_List (Dispatcher.DB.Query.Data.all);
+         elsif URI = "/log" then
+            return Server_Log (Dispatcher.DB.Query.Data.all);
          end if;
 
          if URI'Length < Key'Length + 1 then
@@ -218,6 +223,41 @@ package body Simple_Webapps.Upload_Servers is
          & "<p><a href=""/"">Back to upload page</a></p>"
          & "</body></html>");
    end Report;
+
+
+   function Server_Log (DB : Backend.Database) return AWS.Response.Data is
+      Table : Ada.Strings.Unbounded.Unbounded_String;
+
+      procedure Process (Time : in Ada.Calendar.Time; Message : in String);
+
+      procedure Process (Time : in Ada.Calendar.Time; Message : in String) is
+      begin
+         Ada.Strings.Unbounded.Append
+           (Table,
+            "<tr>"
+            & "<td>" & Ada.Calendar.Formatting.Image (Time) & "</td>"
+            & "<td>" & HTML_Escape (Message) & "</td>"
+            & "</tr>");
+      end Process;
+
+      Result : Boolean;
+      pragma Unreferenced (Result);
+   begin
+      Result := DB.Iterate_Logs (Process'Access);
+
+      return AWS.Response.Build
+        ("text/html",
+         "<html><head><title>Server Log</title></head>"
+         & "<body><h1>Server Log</h1>"
+         & "<table><tr>"
+         & "<th>Time</th>"
+         & "<th>Message</th>"
+         & "</tr>"
+         & Ada.Strings.Unbounded.To_String (Table)
+         & "</table>"
+         & "<p><a href=""/"">Back to upload page</a></p>"
+         & "</body></html>");
+   end Server_Log;
 
 
    function Upload_Form (DB : Backend.Database) return AWS.Response.Data is

@@ -649,6 +649,7 @@ package body Backend is
          return Result;
       end Download;
 
+
       function Iterate
         (Process : not null access procedure (F : in File))
          return Boolean
@@ -663,6 +664,25 @@ package body Backend is
          Files.Expires.Iterate (Local_Process'Access);
          return True;
       end Iterate;
+
+
+      function Iterate_Logs
+        (Process : not null access procedure
+           (Time : in Ada.Calendar.Time;
+            Message : in String))
+         return Boolean
+      is
+         procedure Local_Process (Position : in Log_Lists.Cursor);
+
+         procedure Local_Process (Position : in Log_Lists.Cursor) is
+            L : constant Log_Entry := Log_Lists.Element (Position);
+         begin
+            Process.all (L.Time, To_String (L.Message));
+         end Local_Process;
+      begin
+         Logs.Iterate (Local_Process'Access);
+         return True;
+      end Iterate_Logs;
 
 
       procedure Add_File
@@ -759,7 +779,16 @@ package body Backend is
             Files.Downloads.Insert (Download, F);
             Files.Expires.Insert (F);
          end Insert_Ref;
+
+         Log ("File " & Report & " received, expires on "
+           & Ada.Calendar.Formatting.Image (Expiration));
       end Add_File;
+
+
+      procedure Log (Message : in String) is
+      begin
+         Logs.Append ((Ada.Calendar.Clock, Hold (Message)));
+      end Log;
 
 
       procedure Purge_Expired is
@@ -775,6 +804,7 @@ package body Backend is
             Files.Downloads.Delete (First.Download);
             Files.Expires.Delete (First);
             Ada.Directories.Delete_File (First.Path);
+            Log ("File " & First.Report & " purged");
          end loop;
       end Purge_Expired;
 
@@ -799,6 +829,7 @@ package body Backend is
            or else Ada.Directories.Kind (To_String (New_Data.Storage_File))
               /= Ada.Directories.Ordinary_File
          then
+            Log ("Failed reset");
             return;
          end if;
 
@@ -810,6 +841,10 @@ package body Backend is
             Read (Files, Storage, New_Data.Directory);
          end;
          Config := New_Data;
+
+         Log ("Database successfully reset with"
+           & Ada.Containers.Count_Type'Image (Files.Expires.Length)
+           & " active files");
       end Reset;
 
    end Database;
