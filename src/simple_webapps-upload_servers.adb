@@ -65,6 +65,7 @@ package body Simple_Webapps.Upload_Servers is
                Parameters : constant AWS.Parameters.List
                  := AWS.Status.Parameters (Request);
                Report : URI_Key;
+               Expiration : Ada.Calendar.Time := Ada.Calendar.Clock;
             begin
                pragma Assert
                  (AWS.Attachments.Count (Attachments) = 1
@@ -73,12 +74,40 @@ package body Simple_Webapps.Upload_Servers is
                   and then AWS.Parameters.Get (Parameters, "file", 2)
                     = AWS.Attachments.Filename (File_Att));
 
+               Compute_Expiration :
+               declare
+                  use type Ada.Calendar.Time;
+
+                  Exp_Str : constant String
+                    := AWS.Parameters.Get (Parameters, "expire");
+                  Unit_Str : constant String
+                    := AWS.Parameters.Get (Parameters, "expire_unit");
+                  Exp_Delay : Natural;
+               begin
+                  Exp_Delay := Natural'Value (Exp_Str);
+
+                  if Unit_Str = "minutes" then
+                     Exp_Delay := Exp_Delay * 60;
+                  elsif Unit_Str = "hours" then
+                     Exp_Delay := Exp_Delay * 3600;
+                  elsif Unit_Str = "days" then
+                     Exp_Delay := Exp_Delay * 86_400;
+                  elsif Unit_Str = "weeks" then
+                     Exp_Delay := Exp_Delay * 604_800;
+                  end if;
+
+                  Expiration := Expiration + Duration (Exp_Delay);
+               exception
+                  when Constraint_Error =>
+                     Expiration := Ada.Calendar.Clock + 300.0;
+               end Compute_Expiration;
+
                Dispatcher.DB.Update.Data.Add_File
                  (AWS.Parameters.Get (Parameters, "file"),
                   AWS.Parameters.Get (Parameters, "file", 2),
                   AWS.Parameters.Get (Parameters, "comment"),
                   AWS.Attachments.Content_Type (File_Att),
-                  Ada.Calendar."+" (Ada.Calendar.Clock, 3600.0),
+                  Expiration,
                   Report);
                return AWS.Response.URL ('/' & Report);
             end;
@@ -270,7 +299,18 @@ package body Simple_Webapps.Upload_Servers is
          & "<form enctype=""multipart/form-data"" action=""/post"""
          & " method=""post"">"
          & "<p><input name=""file"" type=""file""></p>"
-         & "<p><textarea name=""comment"" cols=""80"" rows=""10""></textarea>"
+         & "<p><label>Expires in "
+         & "<input name=""expire"" value=""1""></label>"
+         & "<select name=""expire_unit"">"
+         & "<option>seconds</options>"
+         & "<option>minutes</options>"
+         & "<option selected>hours</options>"
+         & "<option>days</options>"
+         & "<option>weeks</options>"
+         & "</select></p>"
+         & "<p><label>Comment:<br>"
+         & "<textarea name=""comment"" cols=""80"" rows=""10""></textarea>"
+         & "</label><?p>"
          & "<p><input name=""submit"" value=""Send"""
          & " type=""submit""></p>"
          & "</form>"
