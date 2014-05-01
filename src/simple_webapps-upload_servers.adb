@@ -14,8 +14,8 @@
 -- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.           --
 ------------------------------------------------------------------------------
 
+with Ada.Calendar.Arithmetic;
 with Ada.Calendar.Formatting;
-with Ada.Directories;
 
 with AWS.Attachments;
 with AWS.Messages;
@@ -65,7 +65,7 @@ package body Simple_Webapps.Upload_Servers is
                Parameters : constant AWS.Parameters.List
                  := AWS.Status.Parameters (Request);
                Report : URI_Key;
-               Expiration : Ada.Calendar.Time := Ada.Calendar.Clock;
+               Expire : Ada.Calendar.Time;
             begin
                pragma Assert
                  (AWS.Attachments.Count (Attachments) = 1
@@ -86,20 +86,15 @@ package body Simple_Webapps.Upload_Servers is
                begin
                   Exp_Delay := Natural'Value (Exp_Str);
 
-                  if Unit_Str = "minutes" then
-                     Exp_Delay := Exp_Delay * 60;
-                  elsif Unit_Str = "hours" then
-                     Exp_Delay := Exp_Delay * 3600;
-                  elsif Unit_Str = "days" then
-                     Exp_Delay := Exp_Delay * 86_400;
-                  elsif Unit_Str = "weeks" then
-                     Exp_Delay := Exp_Delay * 604_800;
-                  end if;
-
-                  Expiration := Expiration + Duration (Exp_Delay);
+                  Expire := Expiration
+                    (Dispatcher.DB.Query.Data.all,
+                     Exp_Delay,
+                     Unit_Str,
+                     Ada.Directories.Size
+                       (AWS.Parameters.Get (Parameters, "file")));
                exception
                   when Constraint_Error =>
-                     Expiration := Ada.Calendar.Clock + 300.0;
+                     Expire := Ada.Calendar.Clock + 300.0;
                end Compute_Expiration;
 
                Dispatcher.DB.Update.Data.Add_File
@@ -107,7 +102,7 @@ package body Simple_Webapps.Upload_Servers is
                   AWS.Parameters.Get (Parameters, "file", 2),
                   AWS.Parameters.Get (Parameters, "comment"),
                   AWS.Attachments.Content_Type (File_Att),
-                  Expiration,
+                  Expire,
                   Report);
                return AWS.Response.URL ('/' & Report);
             end;
@@ -184,6 +179,43 @@ package body Simple_Webapps.Upload_Servers is
    begin
       Dispatcher.DB.Replace (Create'Access);
    end Reset;
+
+
+   function Expiration
+     (DB : Backend.Database;
+      Request_Number : Natural;
+      Request_Unit : String;
+      Size : Ada.Directories.File_Size)
+     return Ada.Calendar.Time
+   is
+      use type Ada.Calendar.Time;
+
+      Req_Delay, Max_Delay : Size_Time;
+   begin
+      Req_Delay := Size_Time (Request_Number);
+
+      if Request_Unit = "minutes" then
+         Req_Delay := Req_Delay * 60;
+      elsif Request_Unit = "hours" then
+         Req_Delay := Req_Delay * 3600;
+      elsif Request_Unit = "days" then
+         Req_Delay := Req_Delay * 86_400;
+      elsif Request_Unit = "weeks" then
+         Req_Delay := Req_Delay * 604_800;
+      end if;
+
+      Max_Delay := DB.Max_Expiration / Size_Time (Size);
+
+      if Req_Delay > Max_Delay then
+         Req_Delay := Max_Delay;
+      end if;
+
+      return Ada.Calendar.Arithmetic."+"
+        (Ada.Calendar.Clock,
+         Ada.Calendar.Arithmetic.Day_Count (Req_Delay / 86_400))
+        + Duration (Req_Delay mod 86_400);
+   end Expiration;
+
 
 
 
@@ -290,8 +322,50 @@ package body Simple_Webapps.Upload_Servers is
 
 
    function Upload_Form (DB : Backend.Database) return AWS.Response.Data is
-      pragma Unreferenced (DB);
+      Max_Exp : Size_Time := DB.Max_Expiration;
+      Time_Suffix : Character := 's';
+      Size_Prefix : Character := ' ';
    begin
+      if Max_Exp mod 60 = 0 then
+         Max_Exp := Max_Exp / 60;
+         Time_Suffix := 'm';
+
+         if Max_Exp mod 60 = 0 then
+            Max_Exp := Max_Exp / 60;
+            Time_Suffix := 'h';
+
+            if Max_Exp mod 24 = 0 then
+               Max_Exp := Max_Exp / 24;
+               Time_Suffix := 'd';
+
+               if Max_Exp mod 7 = 0 then
+                  Max_Exp := Max_Exp / 7;
+                  Time_Suffix := 'w';
+               end if;
+            end if;
+         end if;
+      end if;
+
+      if Max_Exp mod 1024 = 0 then
+         Max_Exp := Max_Exp / 1024;
+         Size_Prefix := 'k';
+
+         if Max_Exp mod 1024 = 0 then
+            Max_Exp := Max_Exp / 1024;
+            Size_Prefix := 'M';
+
+            if Max_Exp mod 1024 = 0 then
+               Max_Exp := Max_Exp / 1024;
+               Size_Prefix := 'G';
+
+               if Max_Exp mod 1024 = 0 then
+                  Max_Exp := Max_Exp / 1024;
+                  Size_Prefix := 'T';
+               end if;
+            end if;
+         end if;
+      end if;
+
       return AWS.Response.Build
         ("text/html",
          "<html><head><title>File Upload</title></head>"
@@ -308,6 +382,8 @@ package body Simple_Webapps.Upload_Servers is
          & "<option>days</options>"
          & "<option>weeks</options>"
          & "</select></p>"
+         & "<p>Maximum expiration is" & Size_Time'Image (Max_Exp)
+         & ' ' & Size_Prefix & "B." & Time_Suffix & " / (file size)</p>"
          & "<p><label>Comment:<br>"
          & "<textarea name=""comment"" cols=""80"" rows=""10""></textarea>"
          & "</label><?p>"

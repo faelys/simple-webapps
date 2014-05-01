@@ -34,6 +34,7 @@ private with Ada.Calendar;
 private with Ada.Containers.Doubly_Linked_Lists;
 private with Ada.Containers.Ordered_Maps;
 private with Ada.Containers.Ordered_Sets;
+private with Ada.Directories;
 private with Ada.Strings.Unbounded;
 private with Natools.References;
 private with Natools.Storage_Pools;
@@ -67,6 +68,9 @@ private
 
    subtype URI_Key is String (1 .. 27);
 
+   type Size_Time is range 0 .. 10 ** 15;
+      --  Product of a file size and a time, used to cap expiration times
+
    package Backend is
       package Atom_Refs renames Natools.S_Expressions.Atom_Buffers.Atom_Refs;
 
@@ -98,6 +102,8 @@ private
          function Report (Key : URI_Key) return File;
 
          function Download (Key : URI_Key) return File;
+
+         function Max_Expiration return Size_Time;
 
          function Iterate
            (Process : not null access procedure (F : in File))
@@ -181,9 +187,17 @@ private
          Storage_File : String_Holder;
          Directory : Atom_Refs.Immutable_Reference;
          HMAC_Key : String_Holder;
+         Max_Expiration : Size_Time := 368_640_000;  --  100 kB.h
       end record;
 
    end Backend;
+
+   function Expiration
+     (DB : Backend.Database;
+      Request_Number : Natural;
+      Request_Unit : String;
+      Size : Ada.Directories.File_Size)
+     return Ada.Calendar.Time;
 
    package Database_Refs is new Natools.References
      (Backend.Database,

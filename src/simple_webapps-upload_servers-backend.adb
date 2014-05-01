@@ -337,6 +337,15 @@ package body Backend is
          State : in out Config_Data;
          Context : in Boolean;
          Value : in String);
+
+      type Set_Max_Expiration is new Config_Interpreters.Command
+        with null record;
+
+      overriding procedure Execute
+        (Self : in out Set_Max_Expiration;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Cmd : in out S_Expressions.Lockable.Descriptor'Class);
    end Config_Commands;
 
 
@@ -406,6 +415,110 @@ package body Backend is
          State.HMAC_Key := Hold (Value);
       end Simple_Execute;
 
+
+      overriding procedure Execute
+        (Self : in out Set_Max_Expiration;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Cmd : in out S_Expressions.Lockable.Descriptor'Class)
+      is
+         pragma Unreferenced (Self, Context);
+         use type S_Expressions.Events.Event;
+         Event : S_Expressions.Events.Event;
+         New_Value : Size_Time := 0;
+      begin
+         Cmd.Next (Event);
+         if Event /= S_Expressions.Events.Add_Atom then
+            return;
+         end if;
+
+         Parse_Number :
+         declare
+            use type S_Expressions.Atom;
+            use type S_Expressions.Count;
+            use type S_Expressions.Octet;
+
+            Number : constant S_Expressions.Atom := Cmd.Current_Atom;
+            I : S_Expressions.Count := Number'First;
+         begin
+            while I in Number'Range and then Number (I) = 32 loop
+               I := I + 1;
+            end loop;
+
+            while I in Number'Range and then Number (I) in 48 .. 57 loop
+               New_Value := New_Value * 10 + Size_Time (Number (I) - 48);
+               I := I + 1;
+            end loop;
+
+            if I in Number'Range or New_Value = 0 then
+               return;
+            end if;
+         end Parse_Number;
+
+         State.Max_Expiration := New_Value;
+
+         Cmd.Next (Event);
+         if Event /= S_Expressions.Events.Add_Atom then
+            return;
+         end if;
+
+         Parse_Unit :
+         declare
+            Unit_Str : constant String
+              := S_Expressions.To_String (Cmd.Current_Atom);
+            I : Positive := Unit_Str'First;
+         begin
+            if Unit_Str (I) = 'k' then
+               New_Value := New_Value * 1024;
+               I := I + 1;
+            elsif Unit_Str (I) = 'M' then
+               New_Value := New_Value * 1024 ** 2;
+               I := I + 1;
+            elsif Unit_Str (I) = 'G' then
+               New_Value := New_Value * 1024 ** 3;
+               I := I + 1;
+            elsif Unit_Str (I) = 'T' then
+               New_Value := New_Value * 1024 ** 4;
+               I := I + 1;
+            end if;
+
+            if Unit_Str (I) = 'b' then
+               New_Value := New_Value / 8;
+               I := I + 1;
+            elsif Unit_Str (I) = 'B' then
+               I := I + 1;
+            else
+               return;
+            end if;
+
+            if Unit_Str (I) = '.' then
+               I := I + 1;
+            else
+               return;
+            end if;
+
+            if Unit_Str (I) = 's' then
+               I := I + 1;
+            elsif Unit_Str (I) = 'm' then
+               New_Value := New_Value * 60;
+               I := I + 1;
+            elsif Unit_Str (I) = 'h' then
+               New_Value := New_Value * 3600;
+               I := I + 1;
+            elsif Unit_Str (I) = 'd' then
+               New_Value := New_Value * 86_400;
+               I := I + 1;
+            elsif Unit_Str (I) = 'w' then
+               New_Value := New_Value * 604_800;
+               I := I + 1;
+            else
+               return;
+            end if;
+         end Parse_Unit;
+
+         State.Max_Expiration := New_Value;
+      end Execute;
+
    end Config_Commands;
 
 
@@ -421,6 +534,9 @@ package body Backend is
       Result.Add_Command
         (S_Expressions.To_Atom ("hmac-key"),
          Config_Commands.Set_HMAC_Key'(null record));
+      Result.Add_Command
+        (S_Expressions.To_Atom ("max-expiration"),
+         Config_Commands.Set_Max_Expiration'(null record));
       Result.Add_Command
         (S_Expressions.To_Atom ("error"),
          Config_Interpreters.Do_Nothing);
@@ -650,6 +766,12 @@ package body Backend is
       end Download;
 
 
+      function Max_Expiration return Size_Time is
+      begin
+         return Config.Max_Expiration;
+      end Max_Expiration;
+
+
       function Iterate
         (Process : not null access procedure (F : in File))
          return Boolean
@@ -817,7 +939,8 @@ package body Backend is
          New_Data : Config_Data
            := (Storage_File => Hold ("/"),
                Directory => Atom_Refs.Null_Immutable_Reference,
-               HMAC_Key => Hold (""));
+               HMAC_Key => Hold (""),
+               Max_Expiration => <>);
          Interpreter : Config_Interpreters.Interpreter := Config_Interpreter;
       begin
          Interpreter.Execute (New_Config, New_Data, True);
