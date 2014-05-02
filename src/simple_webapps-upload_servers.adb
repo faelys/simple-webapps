@@ -263,6 +263,57 @@ package body Simple_Webapps.Upload_Servers is
 
 
    function Report (File : Backend.File) return AWS.Response.Data is
+      function Image_Diff (Future, Now : Ada.Calendar.Time) return String;
+
+      function Image_Diff (Future, Now : Ada.Calendar.Time) return String is
+         use Ada.Calendar.Arithmetic;
+         use Ada.Calendar.Formatting;
+
+         Days : Day_Count;
+         Seconds : Duration;
+         Leap_Seconds : Leap_Seconds_Count;
+         Sub_Sec : Second_Duration;
+         Sec : Second_Number;
+         Min : Minute_Number;
+         Hour : Hour_Number;
+      begin
+         Difference (Future, Now, Days, Seconds, Leap_Seconds);
+         Split (Seconds + Duration (Leap_Seconds), Hour, Min, Sec, Sub_Sec);
+
+         if Days >= 10 then
+            if Hour >= 12 then
+               Days := Days + 1;
+            end if;
+            return Day_Count'Image (Days) & 'd';
+
+         elsif Days > 0 then
+            if Min >= 30 then
+               if Hour = Hour_Number'Last then
+                  return Day_Count'Image (Days + 1) & 'd';
+               else
+                  Hour := Hour + 1;
+               end if;
+            end if;
+            return Day_Count'Image (Days) & 'd'
+              & Hour_Number'Image (Hour) & 'h';
+
+         elsif Hour > 0 then
+            if Sec >= 30 then
+               if Min = Minute_Number'Last then
+                  return Hour_Number'Image (Hour + 1) & 'h';
+               else
+                  Min := Min + 1;
+               end if;
+            end if;
+            return Hour_Number'Image (Hour) & 'h'
+              & Minute_Number'Image (Min) & 'm';
+
+         else
+            return Minute_Number'Image (Min) & 'm'
+              & Second_Number'Image (Sec) & 's';
+         end if;
+      end Image_Diff;
+
       DL_URI : constant String := '/' & File.Download & '/' & File.Name;
    begin
       return AWS.Response.Build
@@ -276,7 +327,9 @@ package body Simple_Webapps.Upload_Servers is
          & "<li>Upload date: "
          & Ada.Calendar.Formatting.Image (File.Upload) & "</li>"
          & "<li>Expiration date: "
-         & Ada.Calendar.Formatting.Image (File.Expiration) & "</li>"
+         & Ada.Calendar.Formatting.Image (File.Expiration)
+         & " (in " & Image_Diff (File.Expiration, Ada.Calendar.Clock)
+         & ")</li>"
          & "<li>Download link: <a href=""" & DL_URI & """>"
          & DL_URI & "</a></li>"
          & "<li>Comment: " & HTML_Escape (File.Comment) & "</li>"
