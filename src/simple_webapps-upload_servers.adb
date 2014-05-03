@@ -27,6 +27,8 @@ package body Simple_Webapps.Upload_Servers is
 
    package body Backend is separate;
 
+   function Dump_Form (Request : AWS.Status.Data) return AWS.Response.Data;
+
    function File_List (DB : Backend.Database) return AWS.Response.Data;
       --  Create a list of all files
 
@@ -55,6 +57,8 @@ package body Simple_Webapps.Upload_Servers is
             if AWS.Status.URI (Request) = "/purge" then
                Dispatcher.DB.Update.Data.Purge_Expired;
                return AWS.Response.URL ("/");
+            elsif AWS.Status.URI (Request) = "/dump-form" then
+               return Dump_Form (Request);
             end if;
 
             declare
@@ -222,6 +226,41 @@ package body Simple_Webapps.Upload_Servers is
    ----------------------------
    -- HTML Page Constructors --
    ----------------------------
+
+   function Dump_Form (Request : AWS.Status.Data) return AWS.Response.Data is
+      Page : Ada.Strings.Unbounded.Unbounded_String;
+
+      Attachments : constant AWS.Attachments.List
+        := AWS.Status.Attachments (Request);
+      Attachment : AWS.Attachments.Element;
+      Parameters : constant AWS.Parameters.List
+        := AWS.Status.Parameters (Request);
+   begin
+      Ada.Strings.Unbounded.Append (Page,
+        "<html><head><title>Form Dump</title></head>"
+        & "<body><h1>Form Dump</h1><h2>Parameters</h2><ol>");
+
+      for I in 1 .. AWS.Parameters.Count (Parameters) loop
+         Ada.Strings.Unbounded.Append (Page,
+            "<li>" & AWS.Parameters.Get_Name (Parameters, I)
+            & ": " & AWS.Parameters.Get_Value (Parameters, I) & "</li>");
+      end loop;
+
+      Ada.Strings.Unbounded.Append (Page, "</ol><h2>Attachments</h2><ol>");
+
+      for I in 1 .. AWS.Attachments.Count (Attachments) loop
+         Attachment := AWS.Attachments.Get (Attachments, I);
+         Ada.Strings.Unbounded.Append (Page,
+            "<li>" & AWS.Attachments.Filename (Attachment) & ": "
+            & AWS.Attachments.Content_Type (Attachment) & " at "
+            & AWS.Attachments.Local_Filename (Attachment) & "</li>");
+      end loop;
+
+      Ada.Strings.Unbounded.Append (Page, "</ol></body></html>");
+
+      return AWS.Response.Build ("test/html", To_String (Page));
+   end Dump_Form;
+
 
    function File_List (DB : Backend.Database) return AWS.Response.Data is
       Table : Ada.Strings.Unbounded.Unbounded_String;
