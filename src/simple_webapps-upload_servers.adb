@@ -62,53 +62,74 @@ package body Simple_Webapps.Upload_Servers is
             end if;
 
             declare
+               function Compute_Expiration (Path : String)
+                 return Ada.Calendar.Time;
+
                Attachments : constant AWS.Attachments.List
                  := AWS.Status.Attachments (Request);
-               File_Att : constant AWS.Attachments.Element
-                 := AWS.Attachments.Get (Attachments, 1);
                Parameters : constant AWS.Parameters.List
                  := AWS.Status.Parameters (Request);
-               Report : URI_Key;
-               Expire : Ada.Calendar.Time;
-            begin
-               pragma Assert
-                 (AWS.Attachments.Count (Attachments) = 1
-                  and then AWS.Parameters.Get (Parameters, "file")
-                    = AWS.Attachments.Local_Filename (File_Att)
-                  and then AWS.Parameters.Get (Parameters, "file", 2)
-                    = AWS.Attachments.Filename (File_Att));
 
-               Compute_Expiration :
-               declare
-                  use type Ada.Calendar.Time;
-
-                  Exp_Str : constant String
-                    := AWS.Parameters.Get (Parameters, "expire");
-                  Unit_Str : constant String
-                    := AWS.Parameters.Get (Parameters, "expire_unit");
-                  Exp_Delay : Natural;
+               function Compute_Expiration (Path : String)
+                 return Ada.Calendar.Time is
                begin
-                  Exp_Delay := Natural'Value (Exp_Str);
-
-                  Expire := Expiration
+                  return Expiration
                     (Dispatcher.DB.Query.Data.all,
-                     Exp_Delay,
-                     Unit_Str,
-                     Ada.Directories.Size
-                       (AWS.Parameters.Get (Parameters, "file")));
+                     Natural'Value (AWS.Parameters.Get (Parameters, "expire")),
+                     AWS.Parameters.Get (Parameters, "expire_unit"),
+                     Ada.Directories.Size (Path));
                exception
                   when Constraint_Error =>
-                     Expire := Ada.Calendar.Clock + 300.0;
+                     return Ada.Calendar."+" (Ada.Calendar.Clock, 300.0);
                end Compute_Expiration;
 
-               Dispatcher.DB.Update.Data.Add_File
-                 (AWS.Parameters.Get (Parameters, "file"),
-                  AWS.Parameters.Get (Parameters, "file", 2),
-                  AWS.Parameters.Get (Parameters, "comment"),
-                  AWS.Attachments.Content_Type (File_Att),
-                  Expire,
-                  Report);
-               return AWS.Response.URL ('/' & Report);
+               Report : URI_Key;
+            begin
+               if AWS.Attachments.Count (Attachments) = 1
+                 and then AWS.Parameters.Get (Parameters, "file")
+                   = AWS.Attachments.Local_Filename
+                      (AWS.Attachments.Get (Attachments, 1))
+                 and then AWS.Parameters.Get (Parameters, "file", 2)
+                   = AWS.Attachments.Filename
+                      (AWS.Attachments.Get (Attachments, 1))
+               then
+                  --  Direct file upload through AWS
+
+                  Dispatcher.DB.Update.Data.Add_File
+                    (AWS.Parameters.Get (Parameters, "file"),
+                     AWS.Parameters.Get (Parameters, "file", 2),
+                     AWS.Parameters.Get (Parameters, "comment"),
+                     AWS.Attachments.Content_Type
+                       (AWS.Attachments.Get (Attachments, 1)),
+                     Compute_Expiration
+                       (AWS.Parameters.Get (Parameters, "file")),
+                     Report);
+                  return AWS.Response.URL ('/' & Report);
+
+               elsif Ada.Directories.Exists
+                 (AWS.Parameters.Get (Parameters, "file.path"))
+               then
+                  --  File upload through nginx upload module
+
+                  Dispatcher.DB.Update.Data.Add_File
+                    (AWS.Parameters.Get (Parameters, "file.path"),
+                     AWS.Parameters.Get (Parameters, "file.name"),
+                     AWS.Parameters.Get (Parameters, "comment"),
+                     AWS.Parameters.Get (Parameters, "file.content_type"),
+                     Compute_Expiration
+                       (AWS.Parameters.Get (Parameters, "file.path")),
+                     Report);
+                  return AWS.Response.URL ('/' & Report);
+
+               else
+                  return AWS.Response.Build
+                    ("html/text",
+                     "<html><head><title>Bad Post</title></head>"
+                     & "<body><h1>Bad Post</h1>"
+                     & "<p>Unable to process form fields.</p>"
+                     & "<p><a href=""/"">Back</a></p>"
+                     & "</body></html>");
+               end if;
             end;
 
          when AWS.Status.GET =>
