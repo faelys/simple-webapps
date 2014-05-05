@@ -2,3 +2,4 @@
 (directory "/home/nat/tmp/upload")
 (hmac-key "Câlins")
 (max-expiration 100 MB.d)
+(input-directory /upload/incoming)

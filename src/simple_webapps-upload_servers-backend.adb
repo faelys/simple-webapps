@@ -338,6 +338,14 @@ package body Backend is
          Context : in Boolean;
          Value : in String);
 
+      type Set_Input_Dir is new Single_Value with null record;
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Input_Dir;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Value : in String);
+
       type Set_Max_Expiration is new Config_Interpreters.Command
         with null record;
 
@@ -413,6 +421,18 @@ package body Backend is
          pragma Unreferenced (Self, Context);
       begin
          State.HMAC_Key := Hold (Value);
+      end Simple_Execute;
+
+
+      overriding procedure Simple_Execute
+        (Self : in out Set_Input_Dir;
+         State : in out Config_Data;
+         Context : in Boolean;
+         Value : in String)
+      is
+         pragma Unreferenced (Self, Context);
+      begin
+         State.Input_Dir := Hold (Value);
       end Simple_Execute;
 
 
@@ -534,6 +554,9 @@ package body Backend is
       Result.Add_Command
         (S_Expressions.To_Atom ("hmac-key"),
          Config_Commands.Set_HMAC_Key'(null record));
+      Result.Add_Command
+        (S_Expressions.To_Atom ("input-directory"),
+         Config_Commands.Set_Input_Dir'(null record));
       Result.Add_Command
         (S_Expressions.To_Atom ("max-expiration"),
          Config_Commands.Set_Max_Expiration'(null record));
@@ -816,6 +839,7 @@ package body Backend is
          Report : out URI_Key)
       is
          Download : URI_Key;
+         Input_Dir : constant String := To_String (Config.Input_Dir);
 
          function Create return File_Data;
 
@@ -833,6 +857,19 @@ package body Backend is
          end Create;
       begin
          Purge_Expired;
+
+         if Input_Dir /= ""
+           and then (Input_Dir'Length > Local_Path'Length
+              or else Local_Path (Local_Path'First
+                        .. Local_Path'First + Input_Dir'Length - 1)
+                 /= Input_Dir)
+         then
+            --  Local_Path outside of Input_Dir, something nasty might be
+            --  going on, so drop the request.
+
+            Report := (others => ' ');
+            return;
+         end if;
 
          Compute_Hash :
          declare
@@ -939,7 +976,7 @@ package body Backend is
          New_Data : Config_Data
            := (Storage_File => Hold ("/"),
                Directory => Atom_Refs.Null_Immutable_Reference,
-               HMAC_Key => Hold (""),
+               HMAC_Key | Input_Dir => Hold (""),
                Max_Expiration => <>);
          Interpreter : Config_Interpreters.Interpreter := Config_Interpreter;
       begin
