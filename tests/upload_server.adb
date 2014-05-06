@@ -14,6 +14,7 @@
 -- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.           --
 ------------------------------------------------------------------------------
 
+with Ada.Command_Line;
 with Ada.Text_IO;
 
 with AWS.Config;
@@ -25,7 +26,12 @@ procedure Upload_Server is
    WS : AWS.Server.HTTP;
    Handler : Simple_Webapps.Upload_Servers.Handler;
 begin
-   Handler.Reset ("upload.sx");
+   if Ada.Command_Line.Argument_Count >= 1 then
+      Handler.Reset (Ada.Command_Line.Argument (1));
+   else
+      Handler.Reset ("upload.sx");
+   end if;
+
    AWS.Server.Start (WS, Handler, AWS.Config.Get_Current);
    Ada.Text_IO.Put_Line ("Websever started");
    AWS.Server.Wait (AWS.Server.Q_Key_Pressed);
