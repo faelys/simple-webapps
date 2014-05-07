@@ -753,6 +753,11 @@ package body Backend is
 
    protected body Database is
 
+      function Debug_Activated return Boolean is
+      begin
+         return Debug;
+      end Debug_Activated;
+
       function Report (Key : URI_Key) return File is
          use type Ada.Calendar.Time;
 
@@ -969,7 +974,8 @@ package body Backend is
 
 
       procedure Reset
-        (New_Config : in out S_Expressions.Lockable.Descriptor'Class)
+        (New_Config : in out S_Expressions.Lockable.Descriptor'Class;
+         New_Debug : in Boolean := False)
       is
          use type Ada.Directories.File_Kind;
 
@@ -1000,7 +1006,9 @@ package body Backend is
          begin
             Read (Files, Storage, New_Data.Directory);
          end;
+
          Config := New_Data;
+         Debug := New_Debug;
 
          Log ("Database successfully reset with"
            & Ada.Containers.Count_Type'Image (Files.Expires.Length)

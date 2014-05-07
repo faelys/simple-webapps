@@ -32,7 +32,8 @@ package body Simple_Webapps.Upload_Servers is
    function File_List (DB : Backend.Database) return AWS.Response.Data;
       --  Create a list of all files
 
-   function Report (File : Backend.File) return AWS.Response.Data;
+   function Report (File : Backend.File; Debug : Boolean)
+     return AWS.Response.Data;
       --  Create a report page for the given file
 
    function Server_Log (DB : Backend.Database) return AWS.Response.Data;
@@ -57,7 +58,14 @@ package body Simple_Webapps.Upload_Servers is
             if AWS.Status.URI (Request) = "/purge" then
                Dispatcher.DB.Update.Data.Purge_Expired;
                return AWS.Response.URL ("/");
-            elsif AWS.Status.URI (Request) = "/dump-form" then
+--  GNAT bugbox generator:
+--          elsif Dispatcher.DB.Query.Data.Debug_Activated
+--            and then AWS.Status.URI (Request) = "/dump-form"
+--          then
+--  using the almost equivalent variant:
+            elsif AWS.Status.URI (Request) = "/dump-form"
+              and then Dispatcher.DB.Query.Data.Debug_Activated
+            then
                return Dump_Form (Request);
             end if;
 
@@ -148,10 +156,12 @@ package body Simple_Webapps.Upload_Servers is
 
          if URI = "/" then
             return Upload_Form (Dispatcher.DB.Query.Data.all);
-         elsif URI = "/list" then
-            return File_List (Dispatcher.DB.Query.Data.all);
-         elsif URI = "/log" then
-            return Server_Log (Dispatcher.DB.Query.Data.all);
+         elsif Dispatcher.DB.Query.Data.Debug_Activated then
+            if URI = "/list" then
+               return File_List (Dispatcher.DB.Query.Data.all);
+            elsif URI = "/log" then
+               return Server_Log (Dispatcher.DB.Query.Data.all);
+            end if;
          end if;
 
          if URI'Length < Key'Length + 1 then
@@ -163,7 +173,7 @@ package body Simple_Webapps.Upload_Servers is
          if URI'Length = Key'Length + 1 then
             File := Dispatcher.DB.Query.Data.Report (Key);
             if not File.Is_Empty then
-               return Report (File);
+               return Report (File, Dispatcher.DB.Query.Data.Debug_Activated);
             end if;
          elsif URI (URI'First + Key'Length + 1) /= '/' then
             return AWS.Response.Acknowledge (AWS.Messages.S404);
@@ -188,7 +198,8 @@ package body Simple_Webapps.Upload_Servers is
 
    procedure Reset
      (Dispatcher : in out Handler;
-      Config_File : in String)
+      Config_File : in String;
+      Debug : in Boolean := False)
    is
       function Create return Backend.Database;
 
@@ -198,7 +209,7 @@ package body Simple_Webapps.Upload_Servers is
       function Create return Backend.Database is
       begin
          return DB : Backend.Database do
-            DB.Reset (Reader);
+            DB.Reset (Reader, Debug);
          end return;
       end Create;
    begin
@@ -322,7 +333,9 @@ package body Simple_Webapps.Upload_Servers is
    end File_List;
 
 
-   function Report (File : Backend.File) return AWS.Response.Data is
+   function Report (File : Backend.File; Debug : Boolean)
+     return AWS.Response.Data
+   is
       function Image_Diff (Future, Now : Ada.Calendar.Time) return String;
 
       function Image_Diff (Future, Now : Ada.Calendar.Time) return String is
@@ -374,15 +387,24 @@ package body Simple_Webapps.Upload_Servers is
          end if;
       end Image_Diff;
 
-      DL_URI : constant String := '/' & File.Download & '/' & File.Name;
+      DL : String_Holder;
    begin
+      if Debug then
+         declare
+            DL_URI : constant String := '/' & File.Download & '/' & File.Name;
+         begin
+            DL := Hold ("<li>Download link: <a href=""" & DL_URI & """>"
+              & DL_URI & "</a></li>");
+         end;
+      end if;
+
       return AWS.Response.Build
         ("text/html",
          "<html><head><title>File Report</title></head>"
          & "<body><h1>File Report</h1>"
          & "<ul>"
-         & "<li>Uploaded as " & File.Name & "</li>"
-         & "<li>File type: " & File.MIME_Type & "</li>"
+         & "<li>Uploaded as " & HTML_Escape (File.Name) & "</li>"
+         & "<li>File type: " & HTML_Escape (File.MIME_Type) & "</li>"
          & "<li>" & File.Hash_Type & " digest: " & File.Hex_Digest & "</li>"
          & "<li>Upload date: "
          & Ada.Calendar.Formatting.Image (File.Upload) & "</li>"
@@ -390,8 +412,7 @@ package body Simple_Webapps.Upload_Servers is
          & Ada.Calendar.Formatting.Image (File.Expiration)
          & " (in " & Image_Diff (File.Expiration, Ada.Calendar.Clock)
          & ")</li>"
-         & "<li>Download link: <a href=""" & DL_URI & """>"
-         & DL_URI & "</a></li>"
+         & To_String (DL)
          & "<li>Comment: " & HTML_Escape (File.Comment) & "</li>"
          & "</ul>"
          & "<p><a href=""/"">Back to upload page</a></p>"

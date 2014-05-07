@@ -25,15 +25,22 @@ with Simple_Webapps.Upload_Servers;
 procedure Upload_Server is
    WS : AWS.Server.HTTP;
    Handler : Simple_Webapps.Upload_Servers.Handler;
+   Debug : constant Boolean := Ada.Command_Line.Argument_Count >= 2;
 begin
    if Ada.Command_Line.Argument_Count >= 1 then
-      Handler.Reset (Ada.Command_Line.Argument (1));
+      Handler.Reset (Ada.Command_Line.Argument (1), Debug);
    else
-      Handler.Reset ("upload.sx");
+      Handler.Reset ("upload.sx", Debug);
    end if;
 
    AWS.Server.Start (WS, Handler, AWS.Config.Get_Current);
-   Ada.Text_IO.Put_Line ("Websever started");
-   AWS.Server.Wait (AWS.Server.Q_Key_Pressed);
+
+   if Debug then
+      Ada.Text_IO.Put_Line ("Websever started");
+      AWS.Server.Wait (AWS.Server.Q_Key_Pressed);
+   else
+      AWS.Server.Wait;
+   end if;
+
    AWS.Server.Shutdown (WS);
 end Upload_Server;

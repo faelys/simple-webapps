@@ -54,7 +54,8 @@ package Simple_Webapps.Upload_Servers is
 
    procedure Reset
      (Dispatcher : in out Handler;
-      Config_File : in String);
+      Config_File : in String;
+      Debug : in Boolean := False);
 
 private
 
@@ -105,6 +106,8 @@ private
 
          function Max_Expiration return Size_Time;
 
+         function Debug_Activated return Boolean;
+
          function Iterate
            (Process : not null access procedure (F : in File))
             return Boolean;
@@ -131,12 +134,14 @@ private
             --  Remove expired entries from database
 
          procedure Reset
-           (New_Config : in out S_Expressions.Lockable.Descriptor'Class);
+           (New_Config : in out S_Expressions.Lockable.Descriptor'Class;
+            New_Debug : in Boolean := False);
             --  Reset database to a clean state with the given parameters
       private
          Config : Config_Data;
          Files : File_Set;
          Logs : Log_Lists.List;
+         Debug : Boolean := False;
       end Database;
 
    private
