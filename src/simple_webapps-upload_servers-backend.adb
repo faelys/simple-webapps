@@ -905,6 +905,11 @@ package body Backend is
             Ada.Directories.Copy_File (Local_Path, Target_Path);
          end Save_File;
 
+         Remove_Source :
+         begin
+            Ada.Directories.Delete_File (Local_Path);
+         end Remove_Source;
+
          Download := S_Expressions.To_String
            (S_Expressions.Encodings.Encode_Base64
               (HMAC.Digest
