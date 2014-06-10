@@ -38,7 +38,7 @@ private with Ada.Directories;
 private with Ada.Strings.Unbounded;
 private with Natools.References;
 private with Natools.Storage_Pools;
-private with Natools.S_Expressions.Atom_Buffers;
+private with Natools.S_Expressions.Atom_Refs;
 private with Natools.S_Expressions.Lockable;
 
 package Simple_Webapps.Upload_Servers is
@@ -73,7 +73,7 @@ private
       --  Product of a file size and a time, used to cap expiration times
 
    package Backend is
-      package Atom_Refs renames Natools.S_Expressions.Atom_Buffers.Atom_Refs;
+      package Atom_Refs renames Natools.S_Expressions.Atom_Refs;
 
       type File is tagged private;
 

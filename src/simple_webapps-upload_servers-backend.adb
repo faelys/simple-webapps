@@ -22,7 +22,7 @@ with Natools.GNAT_HMAC;
 with Natools.GNAT_HMAC.SHA1;
 with Natools.S_Expressions.Encodings;
 with Natools.S_Expressions.File_Readers;
-with Natools.S_Expressions.Interpreters;
+with Natools.S_Expressions.Dynamic_Interpreters;
 with Natools.S_Expressions.Printers;
 
 separate (Simple_Webapps.Upload_Servers)
@@ -46,7 +46,7 @@ package body Backend is
    -- File Entry I/O --
    --------------------
 
-   package File_Interpreters is new Natools.S_Expressions.Interpreters
+   package File_Interpreters is new Natools.S_Expressions.Dynamic_Interpreters
      (Shared_State => File_Data,
       Shared_Context => Boolean);
 
@@ -290,7 +290,8 @@ package body Backend is
    -- Database Config I/O --
    -------------------------
 
-   package Config_Interpreters is new Natools.S_Expressions.Interpreters
+   package Config_Interpreters is
+   new Natools.S_Expressions.Dynamic_Interpreters
      (Shared_State => Config_Data,
       Shared_Context => Boolean);
 
