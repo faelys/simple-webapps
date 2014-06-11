@@ -22,11 +22,15 @@ with Natools.GNAT_HMAC;
 with Natools.GNAT_HMAC.SHA1;
 with Natools.S_Expressions.Encodings;
 with Natools.S_Expressions.File_Readers;
-with Natools.S_Expressions.Dynamic_Interpreters;
+with Natools.S_Expressions.Interpreter_Loop;
 with Natools.S_Expressions.Printers;
+
+with Simple_Webapps.Commands.Upload_Servers;
 
 separate (Simple_Webapps.Upload_Servers)
 package body Backend is
+
+   package Commands renames Simple_Webapps.Commands.Upload_Servers;
 
    package Hash renames GNAT.SHA1;
    package HMAC renames Natools.GNAT_HMAC.SHA1;
@@ -35,6 +39,25 @@ package body Backend is
    Digit_62 : constant Ada.Streams.Stream_Element := Character'Pos ('-');
    Digit_63 : constant Ada.Streams.Stream_Element := Character'Pos ('_');
       --  Special digits for base-64 URI (RFC 4648)
+
+   procedure Execute
+     (State : in out Config_Data;
+      Context : in Natools.Meaningless_Type;
+      Name : in S_Expressions.Atom;
+      Arguments : in out S_Expressions.Lockable.Descriptor'Class);
+      --  Execute S-expression commands for configuration data interpreter
+
+   procedure Execute
+     (State : in out File_Data;
+      Context : in Natools.Meaningless_Type;
+      Name : in S_Expressions.Atom;
+      Arguments : in out S_Expressions.Lockable.Descriptor'Class);
+      --  Execute S-expression commands for file data interpreter
+
+   procedure Set_Max_Expiration
+     (Max_Expiration : in out Size_Time;
+      Expression : in out S_Expressions.Lockable.Descriptor'Class);
+      --  Process Expression and update Max_Expiration with parsed value
 
    procedure Write
      (Self : in File_Data;
@@ -46,207 +69,53 @@ package body Backend is
    -- File Entry I/O --
    --------------------
 
-   package File_Interpreters is new Natools.S_Expressions.Dynamic_Interpreters
-     (Shared_State => File_Data,
-      Shared_Context => Boolean);
-
-   function File_Interpreter return File_Interpreters.Interpreter;
-
-
-   package File_Commands is
-      type Single_Value is abstract new File_Interpreters.Command
-        with null record;
-
-      not overriding procedure Simple_Execute
-        (Self : in out Single_Value;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String)
-        is abstract;
-
-      overriding procedure Execute
-        (Self : in out Single_Value;
-         State : in out File_Data;
-         Context : in Boolean;
-         Cmd : in out S_Expressions.Lockable.Descriptor'Class);
-
-      type Set_Name is new Single_Value with null record;
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Name;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String);
-
-      type Set_Comment is new Single_Value with null record;
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Comment;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String);
-
-      type Set_Download is new Single_Value with null record;
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Download;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String);
-
-      type Set_Expiration is new Single_Value with null record;
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Expiration;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String);
-
-      type Set_MIME_Type is new Single_Value with null record;
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_MIME_Type;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String);
-
-      type Set_Upload is new Single_Value with null record;
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Upload;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String);
-   end File_Commands;
-
-
-   package body File_Commands is
-
-      overriding procedure Execute
-        (Self : in out Single_Value;
-         State : in out File_Data;
-         Context : in Boolean;
-         Cmd : in out S_Expressions.Lockable.Descriptor'Class)
-      is
-         use type S_Expressions.Events.Event;
-
-         Event : S_Expressions.Events.Event;
-      begin
-         Cmd.Next (Event);
-
-         if Event /= S_Expressions.Events.Add_Atom then
-            return;
-         end if;
-
-         Simple_Execute
-           (Single_Value'Class (Self), State, Context,
-            S_Expressions.To_String (Cmd.Current_Atom));
-      end Execute;
-
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Name;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String)
-      is
-         pragma Unreferenced (Self, Context);
-      begin
-         State.Name := Hold (Value);
-      end Simple_Execute;
-
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Comment;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String)
-      is
-         pragma Unreferenced (Self, Context);
-      begin
-         State.Comment := Hold (Value);
-      end Simple_Execute;
-
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Download;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String)
-      is
-         pragma Unreferenced (Self, Context);
-      begin
-         if State.Download'Length = Value'Length then
-            State.Download := Value;
-         end if;
-      end Simple_Execute;
-
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Expiration;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String)
-      is
-         pragma Unreferenced (Self, Context);
-      begin
-         State.Expiration := Ada.Calendar.Formatting.Value (Value);
-      end Simple_Execute;
-
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_MIME_Type;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String)
-      is
-         pragma Unreferenced (Self, Context);
-      begin
-         State.MIME_Type := Hold (Value);
-      end Simple_Execute;
-
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Upload;
-         State : in out File_Data;
-         Context : in Boolean;
-         Value : in String)
-      is
-         pragma Unreferenced (Self, Context);
-      begin
-         State.Upload := Ada.Calendar.Formatting.Value (Value);
-      end Simple_Execute;
-   end File_Commands;
-
-
-   function File_Interpreter return File_Interpreters.Interpreter is
-      Result : File_Interpreters.Interpreter;
+   procedure Execute
+     (State : in out File_Data;
+      Context : in Natools.Meaningless_Type;
+      Name : in S_Expressions.Atom;
+      Arguments : in out S_Expressions.Lockable.Descriptor'Class)
+   is
+      pragma Unreferenced (Context);
+      use type S_Expressions.Events.Event;
    begin
-      Result.Add_Command
-        (S_Expressions.To_Atom ("name"),
-         File_Commands.Set_Name'(null record));
-      Result.Add_Command
-        (S_Expressions.To_Atom ("comment"),
-         File_Commands.Set_Comment'(null record));
-      Result.Add_Command
-        (S_Expressions.To_Atom ("download-key"),
-         File_Commands.Set_Download'(null record));
-      Result.Add_Command
-        (S_Expressions.To_Atom ("expire"),
-         File_Commands.Set_Expiration'(null record));
-      Result.Add_Command
-        (S_Expressions.To_Atom ("mime-type"),
-         File_Commands.Set_MIME_Type'(null record));
-      Result.Add_Command
-        (S_Expressions.To_Atom ("upload"),
-         File_Commands.Set_Upload'(null record));
-      Result.Add_Command
-        (S_Expressions.To_Atom ("error"),
-         File_Interpreters.Do_Nothing);
+      if Arguments.Current_Event /= S_Expressions.Events.Add_Atom then
+         return;
+      end if;
 
-      Result.Set_Fallback (S_Expressions.To_Atom ("error"));
-      return Result;
-   end File_Interpreter;
+      declare
+         Value : constant String
+           := S_Expressions.To_String (Arguments.Current_Atom);
+      begin
+         case Commands.To_File_Command (S_Expressions.To_String (Name)) is
+            when Commands.File_Error =>
+               null;
+
+            when Commands.Set_Name =>
+               State.Name := Hold (Value);
+
+            when Commands.Set_Comment =>
+               State.Comment := Hold (Value);
+
+            when Commands.Set_Download =>
+               if State.Download'Length = Value'Length then
+                  State.Download := Value;
+               end if;
+
+            when Commands.Set_Expiration =>
+               State.Expiration := Ada.Calendar.Formatting.Value (Value);
+
+            when Commands.Set_MIME_Type =>
+               State.MIME_Type := Hold (Value);
+
+            when Commands.Set_Upload =>
+               State.Upload := Ada.Calendar.Formatting.Value (Value);
+         end case;
+      end;
+   end Execute;
+
+
+   procedure Interpreter is new S_Expressions.Interpreter_Loop
+     (File_Data, Natools.Meaningless_Type, Execute);
 
 
    procedure Write
@@ -290,284 +159,151 @@ package body Backend is
    -- Database Config I/O --
    -------------------------
 
-   package Config_Interpreters is
-   new Natools.S_Expressions.Dynamic_Interpreters
-     (Shared_State => Config_Data,
-      Shared_Context => Boolean);
-
-   function Config_Interpreter return Config_Interpreters.Interpreter;
-
-
-   package Config_Commands is
-      type Single_Value is abstract new Config_Interpreters.Command
-        with null record;
-
-      not overriding procedure Simple_Execute
-        (Self : in out Single_Value;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Value : in String)
-        is abstract;
-
-      overriding procedure Execute
-        (Self : in out Single_Value;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Cmd : in out S_Expressions.Lockable.Descriptor'Class);
-
-      type Set_Storage_File is new Single_Value with null record;
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Storage_File;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Value : in String);
-
-      type Set_Directory is new Single_Value with null record;
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Directory;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Value : in String);
-
-      type Set_HMAC_Key is new Single_Value with null record;
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_HMAC_Key;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Value : in String);
-
-      type Set_Input_Dir is new Single_Value with null record;
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Input_Dir;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Value : in String);
-
-      type Set_Max_Expiration is new Config_Interpreters.Command
-        with null record;
-
-      overriding procedure Execute
-        (Self : in out Set_Max_Expiration;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Cmd : in out S_Expressions.Lockable.Descriptor'Class);
-   end Config_Commands;
-
-
-   package body Config_Commands is
-
-      overriding procedure Execute
-        (Self : in out Single_Value;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Cmd : in out S_Expressions.Lockable.Descriptor'Class)
-      is
-         use type S_Expressions.Events.Event;
-
-         Event : S_Expressions.Events.Event;
-      begin
-         Cmd.Next (Event);
-
-         if Event /= S_Expressions.Events.Add_Atom then
-            return;
-         end if;
-
-         Simple_Execute
-           (Single_Value'Class (Self), State, Context,
-            S_Expressions.To_String (Cmd.Current_Atom));
-      end Execute;
-
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Storage_File;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Value : in String)
-      is
-         pragma Unreferenced (Self, Context);
-      begin
-         State.Storage_File := Hold (Value);
-      end Simple_Execute;
-
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Directory;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Value : in String)
-      is
-         pragma Unreferenced (Self, Context);
-
-         function Create return S_Expressions.Atom;
-
-         function Create return S_Expressions.Atom is
-         begin
-            return S_Expressions.To_Atom (Value);
-         end Create;
-      begin
-         State.Directory := Atom_Refs.Create (Create'Access);
-      end Simple_Execute;
-
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_HMAC_Key;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Value : in String)
-      is
-         pragma Unreferenced (Self, Context);
-      begin
-         State.HMAC_Key := Hold (Value);
-      end Simple_Execute;
-
-
-      overriding procedure Simple_Execute
-        (Self : in out Set_Input_Dir;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Value : in String)
-      is
-         pragma Unreferenced (Self, Context);
-      begin
-         State.Input_Dir := Hold (Value);
-      end Simple_Execute;
-
-
-      overriding procedure Execute
-        (Self : in out Set_Max_Expiration;
-         State : in out Config_Data;
-         Context : in Boolean;
-         Cmd : in out S_Expressions.Lockable.Descriptor'Class)
-      is
-         pragma Unreferenced (Self, Context);
-         use type S_Expressions.Events.Event;
-         Event : S_Expressions.Events.Event;
-         New_Value : Size_Time := 0;
-      begin
-         Cmd.Next (Event);
-         if Event /= S_Expressions.Events.Add_Atom then
-            return;
-         end if;
-
-         Parse_Number :
-         declare
-            use type S_Expressions.Atom;
-            use type S_Expressions.Count;
-            use type S_Expressions.Octet;
-
-            Number : constant S_Expressions.Atom := Cmd.Current_Atom;
-            I : S_Expressions.Count := Number'First;
-         begin
-            while I in Number'Range and then Number (I) = 32 loop
-               I := I + 1;
-            end loop;
-
-            while I in Number'Range and then Number (I) in 48 .. 57 loop
-               New_Value := New_Value * 10 + Size_Time (Number (I) - 48);
-               I := I + 1;
-            end loop;
-
-            if I in Number'Range or New_Value = 0 then
-               return;
-            end if;
-         end Parse_Number;
-
-         State.Max_Expiration := New_Value;
-
-         Cmd.Next (Event);
-         if Event /= S_Expressions.Events.Add_Atom then
-            return;
-         end if;
-
-         Parse_Unit :
-         declare
-            Unit_Str : constant String
-              := S_Expressions.To_String (Cmd.Current_Atom);
-            I : Positive := Unit_Str'First;
-         begin
-            if Unit_Str (I) = 'k' then
-               New_Value := New_Value * 1024;
-               I := I + 1;
-            elsif Unit_Str (I) = 'M' then
-               New_Value := New_Value * 1024 ** 2;
-               I := I + 1;
-            elsif Unit_Str (I) = 'G' then
-               New_Value := New_Value * 1024 ** 3;
-               I := I + 1;
-            elsif Unit_Str (I) = 'T' then
-               New_Value := New_Value * 1024 ** 4;
-               I := I + 1;
-            end if;
-
-            if Unit_Str (I) = 'b' then
-               New_Value := New_Value / 8;
-               I := I + 1;
-            elsif Unit_Str (I) = 'B' then
-               I := I + 1;
-            else
-               return;
-            end if;
-
-            if Unit_Str (I) = '.' then
-               I := I + 1;
-            else
-               return;
-            end if;
-
-            if Unit_Str (I) = 's' then
-               I := I + 1;
-            elsif Unit_Str (I) = 'm' then
-               New_Value := New_Value * 60;
-               I := I + 1;
-            elsif Unit_Str (I) = 'h' then
-               New_Value := New_Value * 3600;
-               I := I + 1;
-            elsif Unit_Str (I) = 'd' then
-               New_Value := New_Value * 86_400;
-               I := I + 1;
-            elsif Unit_Str (I) = 'w' then
-               New_Value := New_Value * 604_800;
-               I := I + 1;
-            else
-               return;
-            end if;
-         end Parse_Unit;
-
-         State.Max_Expiration := New_Value;
-      end Execute;
-
-   end Config_Commands;
-
-
-   function Config_Interpreter return Config_Interpreters.Interpreter is
-      Result : Config_Interpreters.Interpreter;
+   procedure Set_Max_Expiration
+     (Max_Expiration : in out Size_Time;
+      Expression : in out S_Expressions.Lockable.Descriptor'Class)
+   is
+      use type S_Expressions.Events.Event;
+      Event : S_Expressions.Events.Event;
+      New_Value : Size_Time := 0;
    begin
-      Result.Add_Command
-        (S_Expressions.To_Atom ("backend"),
-         Config_Commands.Set_Storage_File'(null record));
-      Result.Add_Command
-        (S_Expressions.To_Atom ("directory"),
-         Config_Commands.Set_Directory'(null record));
-      Result.Add_Command
-        (S_Expressions.To_Atom ("hmac-key"),
-         Config_Commands.Set_HMAC_Key'(null record));
-      Result.Add_Command
-        (S_Expressions.To_Atom ("input-directory"),
-         Config_Commands.Set_Input_Dir'(null record));
-      Result.Add_Command
-        (S_Expressions.To_Atom ("max-expiration"),
-         Config_Commands.Set_Max_Expiration'(null record));
-      Result.Add_Command
-        (S_Expressions.To_Atom ("error"),
-         Config_Interpreters.Do_Nothing);
+      Parse_Number :
+      declare
+         use type S_Expressions.Atom;
+         use type S_Expressions.Count;
+         use type S_Expressions.Octet;
 
-      Result.Set_Fallback (S_Expressions.To_Atom ("error"));
-      return Result;
-   end Config_Interpreter;
+         Number : constant S_Expressions.Atom := Expression.Current_Atom;
+         I : S_Expressions.Offset := Number'First;
+      begin
+         while I in Number'Range and then Number (I) = 32 loop
+            I := I + 1;
+         end loop;
+
+         while I in Number'Range and then Number (I) in 48 .. 57 loop
+            New_Value := New_Value * 10 + Size_Time (Number (I) - 48);
+            I := I + 1;
+         end loop;
+
+         if I in Number'Range or New_Value = 0 then
+            return;
+         end if;
+      end Parse_Number;
+
+      Max_Expiration := New_Value;
+
+      Expression.Next (Event);
+      if Event /= S_Expressions.Events.Add_Atom then
+         return;
+      end if;
+
+      Parse_Unit :
+      declare
+         Unit_Str : constant String
+           := S_Expressions.To_String (Expression.Current_Atom);
+         I : Positive := Unit_Str'First;
+      begin
+         if Unit_Str (I) = 'k' then
+            New_Value := New_Value * 1024;
+            I := I + 1;
+         elsif Unit_Str (I) = 'M' then
+            New_Value := New_Value * 1024 ** 2;
+            I := I + 1;
+         elsif Unit_Str (I) = 'G' then
+            New_Value := New_Value * 1024 ** 3;
+            I := I + 1;
+         elsif Unit_Str (I) = 'T' then
+            New_Value := New_Value * 1024 ** 4;
+            I := I + 1;
+         end if;
+
+         if Unit_Str (I) = 'b' then
+            New_Value := New_Value / 8;
+            I := I + 1;
+         elsif Unit_Str (I) = 'B' then
+            I := I + 1;
+         else
+            return;
+         end if;
+
+         if Unit_Str (I) = '.' then
+            I := I + 1;
+         else
+            return;
+         end if;
+
+         if Unit_Str (I) = 's' then
+            I := I + 1;
+         elsif Unit_Str (I) = 'm' then
+            New_Value := New_Value * 60;
+            I := I + 1;
+         elsif Unit_Str (I) = 'h' then
+            New_Value := New_Value * 3600;
+            I := I + 1;
+         elsif Unit_Str (I) = 'd' then
+            New_Value := New_Value * 86_400;
+            I := I + 1;
+         elsif Unit_Str (I) = 'w' then
+            New_Value := New_Value * 604_800;
+            I := I + 1;
+         else
+            return;
+         end if;
+      end Parse_Unit;
+
+      Max_Expiration := New_Value;
+   end Set_Max_Expiration;
+
+
+   procedure Execute
+     (State : in out Config_Data;
+      Context : in Natools.Meaningless_Type;
+      Name : in S_Expressions.Atom;
+      Arguments : in out S_Expressions.Lockable.Descriptor'Class)
+   is
+      pragma Unreferenced (Context);
+      use type S_Expressions.Events.Event;
+
+      function Current_Atom return S_Expressions.Atom;
+
+      function Current_Atom return S_Expressions.Atom is
+      begin
+         return Arguments.Current_Atom;
+      end Current_Atom;
+   begin
+      if Arguments.Current_Event /= S_Expressions.Events.Add_Atom then
+         return;
+      end if;
+
+      declare
+         Value : constant String
+           := S_Expressions.To_String (Arguments.Current_Atom);
+      begin
+         case Commands.To_Config_Command (S_Expressions.To_String (Name)) is
+            when Commands.Config_Error =>
+               null;
+
+            when Commands.Set_Storage_File =>
+               State.Storage_File := Hold (Value);
+
+            when Commands.Set_Directory =>
+               State.Directory := Atom_Refs.Create (Current_Atom'Access);
+
+            when Commands.Set_HMAC_Key =>
+               State.HMAC_Key := Hold (Value);
+
+            when Commands.Set_Input_Dir =>
+               State.Input_Dir := Hold (Value);
+
+            when Commands.Set_Max_Expiration =>
+               Set_Max_Expiration (State.Max_Expiration, Arguments);
+         end case;
+      end;
+   end Execute;
+
+
+   procedure Interpreter is new S_Expressions.Interpreter_Loop
+      (Config_Data, Natools.Meaningless_Type, Execute);
 
 
 
@@ -701,7 +437,6 @@ package body Backend is
          return Data;
       end Create;
 
-      Interpreter : File_Interpreters.Interpreter := File_Interpreter;
       Lock : S_Expressions.Lockable.Lock_State;
    begin
       Self.Reports.Clear;
@@ -719,7 +454,7 @@ package body Backend is
                   Data.Report := S_Expressions.To_String (Input.Current_Atom);
                   Input.Lock (Lock);
                   Input.Next;
-                  Interpreter.Execute (Input, Data, True);
+                  Interpreter (Input, Data, Natools.Meaningless_Value);
                   Input.Unlock (Lock);
 
                   if Data.Download /= Empty_Data.Download
@@ -990,9 +725,8 @@ package body Backend is
                Directory => Atom_Refs.Null_Immutable_Reference,
                HMAC_Key | Input_Dir => Hold (""),
                Max_Expiration => <>);
-         Interpreter : Config_Interpreters.Interpreter := Config_Interpreter;
       begin
-         Interpreter.Execute (New_Config, New_Data, True);
+         Interpreter (New_Config, New_Data, Natools.Meaningless_Value);
 
          if New_Data.Directory.Is_Empty
            or else To_String (New_Data.HMAC_Key) = ""

@@ -1,0 +1,68 @@
+--  Generated at 2014-06-11 19:00:27 +0000 by Natools.Static_Hash_Maps
+--  from src/simple_webapps-upload_servers-commands.sx
+
+package Simple_Webapps.Commands.Upload_Servers is
+   pragma Pure;
+
+   type Config_Command is
+     (Config_Error,
+      Set_Storage_File,
+      Set_Directory,
+      Set_HMAC_Key,
+      Set_Input_Dir,
+      Set_Max_Expiration);
+
+   type File_Command is
+     (File_Error,
+      Set_Name,
+      Set_Comment,
+      Set_Download,
+      Set_Expiration,
+      Set_MIME_Type,
+      Set_Upload);
+
+   function To_Config_Command (Key : String) return Config_Command;
+   function To_File_Command (Key : String) return File_Command;
+
+private
+
+   Map_1_Key_0 : aliased constant String := "backend";
+   Map_1_Key_1 : aliased constant String := "directory";
+   Map_1_Key_2 : aliased constant String := "hmac-key";
+   Map_1_Key_3 : aliased constant String := "input-directory";
+   Map_1_Key_4 : aliased constant String := "max-expiration";
+   Map_1_Keys : constant array (0 .. 4) of access constant String
+     := (Map_1_Key_0'Access,
+         Map_1_Key_1'Access,
+         Map_1_Key_2'Access,
+         Map_1_Key_3'Access,
+         Map_1_Key_4'Access);
+   Map_1_Elements : constant array (0 .. 4) of Config_Command
+     := (Set_Storage_File,
+         Set_Directory,
+         Set_HMAC_Key,
+         Set_Input_Dir,
+         Set_Max_Expiration);
+
+   Map_2_Key_0 : aliased constant String := "name";
+   Map_2_Key_1 : aliased constant String := "comment";
+   Map_2_Key_2 : aliased constant String := "download-key";
+   Map_2_Key_3 : aliased constant String := "expire";
+   Map_2_Key_4 : aliased constant String := "mime-type";
+   Map_2_Key_5 : aliased constant String := "upload";
+   Map_2_Keys : constant array (0 .. 5) of access constant String
+     := (Map_2_Key_0'Access,
+         Map_2_Key_1'Access,
+         Map_2_Key_2'Access,
+         Map_2_Key_3'Access,
+         Map_2_Key_4'Access,
+         Map_2_Key_5'Access);
+   Map_2_Elements : constant array (0 .. 5) of File_Command
+     := (Set_Name,
+         Set_Comment,
+         Set_Download,
+         Set_Expiration,
+         Set_MIME_Type,
+         Set_Upload);
+
+end Simple_Webapps.Commands.Upload_Servers;
