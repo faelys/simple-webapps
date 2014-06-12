@@ -614,20 +614,19 @@ package body Backend is
 
          Compute_Hash :
          declare
-            package Stream_IO renames Ada.Streams.Stream_IO;
+            procedure Process (Block : in S_Expressions.Atom);
 
             Context : Hash.Context := Hash.Initial_Context;
-            Block : Ada.Streams.Stream_Element_Array (1 .. 1024);
-            Last : Ada.Streams.Stream_Element_Offset;
-            Input : Stream_IO.File_Type;
+
+            procedure Process (Block : in S_Expressions.Atom) is
+            begin
+               Hash.Update (Context, Block);
+            end Process;
          begin
-            Stream_IO.Open (Input, Stream_IO.In_File, Local_Path);
-            loop
-               Stream_IO.Read (Input, Block, Last);
-               exit when Last not in Block'Range;
-               Hash.Update (Context, Block (Block'First .. Last));
-            end loop;
-            Stream_IO.Close (Input);
+            S_Expressions.File_Readers.Block_Query
+              (S_Expressions.File_Readers.Reader (Local_Path),
+               4096,
+               Process'Access);
 
             Report := S_Expressions.To_String
               (S_Expressions.Encodings.Encode_Base64
