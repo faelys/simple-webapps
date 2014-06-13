@@ -14,7 +14,7 @@
 -- OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.           --
 ------------------------------------------------------------------------------
 
-with Ada.Streams.Stream_IO;
+with Ada.Streams;
 
 with GNAT.SHA1;
 
@@ -22,6 +22,7 @@ with Natools.GNAT_HMAC;
 with Natools.GNAT_HMAC.SHA1;
 with Natools.S_Expressions.Encodings;
 with Natools.S_Expressions.File_Readers;
+with Natools.S_Expressions.File_Writers;
 with Natools.S_Expressions.Interpreter_Loop;
 with Natools.S_Expressions.Printers;
 
@@ -655,23 +656,10 @@ package body Backend is
 
          Write_DB :
          declare
-            package Stream_IO renames Ada.Streams.Stream_IO;
-            Output : Stream_IO.File_Type;
+            Printer : S_Expressions.File_Writers.Writer;
          begin
-            Stream_IO.Open
-              (Output,
-               Stream_IO.Append_File,
-               To_String (Config.Storage_File));
-
-            Printer_Block :
-            declare
-               Printer : S_Expressions.Printers.Canonical
-                 (Stream_IO.Stream (Output));
-            begin
-               Write (Create, Printer);
-            end Printer_Block;
-
-            Stream_IO.Close (Output);
+            Printer.Open (To_String (Config.Storage_File));
+            Write (Create, Printer);
          end Write_DB;
 
 
