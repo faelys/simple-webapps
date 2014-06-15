@@ -40,6 +40,7 @@ private with Natools.References;
 private with Natools.Storage_Pools;
 private with Natools.S_Expressions.Atom_Refs;
 private with Natools.S_Expressions.Lockable;
+private with Natools.S_Expressions.Printers.Pretty;
 
 package Simple_Webapps.Upload_Servers is
 
@@ -194,6 +195,7 @@ private
          HMAC_Key : String_Holder;
          Max_Expiration : Size_Time := 368_640_000;  --  100 kB.h
          Input_Dir : String_Holder;
+         Printer_Param : S_Expressions.Printers.Pretty.Parameters;
       end record;
 
    end Backend;

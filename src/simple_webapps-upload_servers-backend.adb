@@ -24,7 +24,7 @@ with Natools.S_Expressions.Encodings;
 with Natools.S_Expressions.File_Readers;
 with Natools.S_Expressions.File_Writers;
 with Natools.S_Expressions.Interpreter_Loop;
-with Natools.S_Expressions.Printers;
+with Natools.S_Expressions.Printers.Pretty.Config;
 
 with Simple_Webapps.Commands.Upload_Servers;
 
@@ -286,6 +286,26 @@ package body Backend is
 
             when Commands.Set_Storage_File =>
                State.Storage_File := Hold (Value);
+
+               declare
+                  Event : S_Expressions.Events.Event;
+               begin
+                  Arguments.Next (Event);
+                  case Event is
+                     when S_Expressions.Events.Add_Atom
+                       | S_Expressions.Events.Open_List
+                     =>
+                        S_Expressions.Printers.Pretty.Config.Update
+                          (State.Printer_Param,
+                           Arguments);
+
+                     when S_Expressions.Events.Close_List
+                       | S_Expressions.Events.End_Of_Input
+                       | S_Expressions.Events.Error
+                     =>
+                        null;
+                  end case;
+               end;
 
             when Commands.Set_Directory =>
                State.Directory := Atom_Refs.Create (Current_Atom'Access);
@@ -659,7 +679,15 @@ package body Backend is
             Printer : S_Expressions.File_Writers.Writer;
          begin
             Printer.Open (To_String (Config.Storage_File));
+            Printer.Set_Parameters (Config.Printer_Param);
             Write (Create, Printer);
+
+            if Config.Printer_Param.Newline_At
+              (S_Expressions.Printers.Pretty.Closing,
+               S_Expressions.Printers.Pretty.Opening)
+            then
+               Printer.Newline;
+            end if;
          end Write_DB;
 
 
@@ -711,7 +739,8 @@ package body Backend is
            := (Storage_File => Hold ("/"),
                Directory => Atom_Refs.Null_Immutable_Reference,
                HMAC_Key | Input_Dir => Hold (""),
-               Max_Expiration => <>);
+               Max_Expiration => <>,
+               Printer_Param => S_Expressions.Printers.Pretty.Canonical);
       begin
          Interpreter (New_Config, New_Data, Natools.Meaningless_Value);
 

@@ -1,4 +1,8 @@
-(backend "/home/nat/tmp/upload/database.sx")
+(backend "/home/nat/tmp/upload/database.sx"
+   utf-8 token single-line-quoted-string upper-hex
+   (newline lf none atom-open close-open)
+   (indentation 3 spaces)
+   (escape hexadecimal))
 (directory "/home/nat/tmp/upload")
 (hmac-key "Câlins")
 (max-expiration 100 MB.d)
