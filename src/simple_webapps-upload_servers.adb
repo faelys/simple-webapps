@@ -201,19 +201,28 @@ package body Simple_Webapps.Upload_Servers is
       Config_File : in String;
       Debug : in Boolean := False)
    is
-      function Create return Backend.Database;
+      function Create_DB return Backend.Database;
+      function Create_Timer return Natools.Cron.Cron_Entry;
 
       Reader : S_Expressions.File_Readers.S_Reader
         := S_Expressions.File_Readers.Reader (Config_File);
 
-      function Create return Backend.Database is
+      function Create_DB return Backend.Database is
       begin
          return DB : Backend.Database do
             DB.Reset (Reader, Debug);
          end return;
-      end Create;
+      end Create_DB;
+
+      function Create_Timer return Natools.Cron.Cron_Entry is
+      begin
+         return Natools.Cron.Create
+           (900.0,
+            Purge_Callback'(DB => Dispatcher.DB));
+      end Create_Timer;
    begin
-      Dispatcher.DB.Replace (Create'Access);
+      Dispatcher.DB.Replace (Create_DB'Access);
+      Dispatcher.Timer.Replace (Create_Timer'Access);
    end Reset;
 
 
@@ -252,6 +261,11 @@ package body Simple_Webapps.Upload_Servers is
         + Duration (Req_Delay mod 86_400);
    end Expiration;
 
+
+   overriding procedure Run (Self : in out Purge_Callback) is
+   begin
+      Self.DB.Update.Data.Purge_Expired;
+   end Run;
 
 
 

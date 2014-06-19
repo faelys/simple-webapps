@@ -36,6 +36,7 @@ private with Ada.Containers.Ordered_Maps;
 private with Ada.Containers.Ordered_Sets;
 private with Ada.Directories;
 private with Ada.Strings.Unbounded;
+private with Natools.Cron;
 private with Natools.References;
 private with Natools.Storage_Pools;
 private with Natools.S_Expressions.Atom_Refs;
@@ -212,8 +213,21 @@ private
       Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool,
       Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool);
 
+   package Timer_Refs is new Natools.References
+     (Natools.Cron.Cron_Entry,
+      Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool,
+      Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool);
+
    type Handler is new AWS.Dispatchers.Handler with record
       DB : Database_Refs.Reference;
+      Timer : Timer_Refs.Reference;
    end record;
+
+
+   type Purge_Callback is new Natools.Cron.Callback with record
+      DB : Database_Refs.Reference;
+   end record;
+
+   overriding procedure Run (Self : in out Purge_Callback);
 
 end Simple_Webapps.Upload_Servers;
