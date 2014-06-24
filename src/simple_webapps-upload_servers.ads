@@ -31,7 +31,6 @@ with AWS.Status;
 with AWS.Response;
 
 private with Ada.Calendar;
-private with Ada.Containers.Doubly_Linked_Lists;
 private with Ada.Containers.Ordered_Maps;
 private with Ada.Containers.Ordered_Sets;
 private with Ada.Directories;
@@ -58,6 +57,16 @@ package Simple_Webapps.Upload_Servers is
      (Dispatcher : in out Handler;
       Config_File : in String;
       Debug : in Boolean := False);
+
+
+   type Log_Procedure is not null access procedure (Message : in String);
+
+   procedure Discard_Log (Message : in String) is null;
+
+   Log : Log_Procedure := Discard_Log'Access;
+      --  Note that Log.all is called in procedures of the proctected backend
+      --  objects. So Log must not be potentially blocking, but can be
+      --  non-reentrant if only one backend is created.
 
 private
 
@@ -94,13 +103,6 @@ private
       type File_Set is private;
       type Config_Data is private;
 
-      type Log_Entry is record
-         Time : Ada.Calendar.Time;
-         Message : String_Holder;
-      end record;
-
-      package Log_Lists is new Ada.Containers.Doubly_Linked_Lists (Log_Entry);
-
       protected type Database is
          function Report (Key : URI_Key) return File;
 
@@ -114,12 +116,6 @@ private
            (Process : not null access procedure (F : in File))
             return Boolean;
 
-         function Iterate_Logs
-           (Process : not null access procedure
-              (Time : in Ada.Calendar.Time;
-               Message : in String))
-            return Boolean;
-
          procedure Add_File
            (Local_Path : in String;
             Name : in String;
@@ -128,9 +124,6 @@ private
             Expiration : in Ada.Calendar.Time;
             Report : out URI_Key);
             --  Add a new file to the internal database
-
-         procedure Log (Message : in String);
-            --  Add an entry to the internal event log
 
          procedure Purge_Expired;
             --  Remove expired entries from database
@@ -142,7 +135,6 @@ private
       private
          Config : Config_Data;
          Files : File_Set;
-         Logs : Log_Lists.List;
          Debug : Boolean := False;
       end Database;
 

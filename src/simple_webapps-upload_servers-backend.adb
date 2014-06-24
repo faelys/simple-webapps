@@ -573,25 +573,6 @@ package body Backend is
       end Iterate;
 
 
-      function Iterate_Logs
-        (Process : not null access procedure
-           (Time : in Ada.Calendar.Time;
-            Message : in String))
-         return Boolean
-      is
-         procedure Local_Process (Position : in Log_Lists.Cursor);
-
-         procedure Local_Process (Position : in Log_Lists.Cursor) is
-            L : constant Log_Entry := Log_Lists.Element (Position);
-         begin
-            Process.all (L.Time, To_String (L.Message));
-         end Local_Process;
-      begin
-         Logs.Iterate (Local_Process'Access);
-         return True;
-      end Iterate_Logs;
-
-
       procedure Add_File
         (Local_Path : in String;
          Name : in String;
@@ -703,12 +684,6 @@ package body Backend is
          Log ("File " & Report & " received, expires on "
            & Ada.Calendar.Formatting.Image (Expiration));
       end Add_File;
-
-
-      procedure Log (Message : in String) is
-      begin
-         Logs.Append ((Ada.Calendar.Clock, Hold (Message)));
-      end Log;
 
 
       procedure Purge_Expired is
