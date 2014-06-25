@@ -20,6 +20,11 @@ with Ada.Text_IO;
 with AWS.Config;
 with AWS.Server;
 
+with Syslog.Guess.App_Name;
+with Syslog.Guess.Hostname;
+with Syslog.Transport.Send_Task;
+with Syslog.Transport.UDP;
+
 with Simple_Webapps.Upload_Servers;
 
 procedure Upload_Server is
@@ -27,6 +32,19 @@ procedure Upload_Server is
    Handler : Simple_Webapps.Upload_Servers.Handler;
    Debug : constant Boolean := Ada.Command_Line.Argument_Count >= 2;
 begin
+   if Debug then
+      Simple_Webapps.Upload_Servers.Log := Ada.Text_IO.Put_Line'Access;
+   else
+      Syslog.Guess.App_Name;
+      Syslog.Guess.Hostname;
+      Syslog.Transport.UDP.Connect ("127.0.0.1");
+      Syslog.Transport.Send_Task.Set_Backend (Syslog.Transport.UDP.Transport);
+      Syslog.Set_Transport (Syslog.Transport.Send_Task.Transport);
+      Syslog.Set_Default_Facility (Syslog.Facilities.Daemon);
+      Syslog.Set_Default_Severity (Syslog.Severities.Notice);
+      Simple_Webapps.Upload_Servers.Log := Syslog.Log'Access;
+   end if;
+
    if Ada.Command_Line.Argument_Count >= 1 then
       Handler.Reset (Ada.Command_Line.Argument (1), Debug);
    else

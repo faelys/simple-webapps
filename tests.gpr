@@ -1,4 +1,5 @@
 with "webapps";
+with "../ada-syslog/adasyslog_gnat";
 
 project Tests is
    for Source_Dirs use ("tests");
