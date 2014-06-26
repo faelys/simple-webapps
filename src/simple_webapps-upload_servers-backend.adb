@@ -481,12 +481,19 @@ package body Backend is
                   if Data.Download /= Empty_Data.Download
                     and then not Self.Reports.Contains (Data.Report)
                     and then not Self.Downloads.Contains (Data.Download)
-                    and then Data.Expiration > Now
                   then
-                     F := (Ref => File_Refs.Create (Create'Access));
-                     Self.Reports.Insert (Data.Report, F);
-                     Self.Downloads.Insert (Data.Download, F);
-                     Self.Expires.Insert (F);
+                     if Data.Expiration > Now then
+                        F := (Ref => File_Refs.Create (Create'Access));
+                        Self.Reports.Insert (Data.Report, F);
+                        Self.Downloads.Insert (Data.Download, F);
+                        Self.Expires.Insert (F);
+                     elsif Ada.Directories.Exists
+                       (Path (Directory, Data.Report))
+                     then
+                        Ada.Directories.Delete_File
+                          (Path (Directory, Data.Report));
+                        Log ("Purged stale file " & Data.Report);
+                     end if;
                   end if;
                end if;
 
