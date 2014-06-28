@@ -111,8 +111,9 @@ package body Simple_Webapps.Upload_Servers is
                      Report);
                   return AWS.Response.URL ('/' & Report);
 
-               elsif Ada.Directories.Exists
-                 (AWS.Parameters.Get (Parameters, "file.path"))
+               elsif AWS.Parameters.Exist (Parameters, "file.path")
+                 and then Ada.Directories.Exists
+                    (AWS.Parameters.Get (Parameters, "file.path"))
                then
                   --  File upload through nginx upload module
 
