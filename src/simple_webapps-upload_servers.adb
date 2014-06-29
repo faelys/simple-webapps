@@ -129,7 +129,7 @@ package body Simple_Webapps.Upload_Servers is
 
                else
                   return AWS.Response.Build
-                    ("html/text",
+                    ("text/html",
                      "<html><head><title>Bad Post</title></head>"
                      & "<body><h1>Bad Post</h1>"
                      & "<p>Unable to process form fields.</p>"
