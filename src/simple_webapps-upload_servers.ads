@@ -108,7 +108,9 @@ private
 
          function Download (Key : URI_Key) return File;
 
+         function Index_Template return String;
          function Max_Expiration return Size_Time;
+         function Report_Template return String;
 
          function Debug_Activated return Boolean;
 
@@ -184,6 +186,8 @@ private
 
       type Config_Data is record
          Storage_File : String_Holder;
+         Index_Template : String_Holder;
+         Report_Template : String_Holder;
          Directory : Atom_Refs.Immutable_Reference;
          HMAC_Key : String_Holder;
          Max_Expiration : Size_Time := 368_640_000;  --  100 kB.h

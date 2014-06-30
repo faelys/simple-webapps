@@ -1,0 +1,27 @@
+<html>
+   <head>
+      <title>File Upload</title>
+   </head>
+   <body>
+      <h1>File Upload</h1>
+      <form enctype="multipart/form-data" action="/post" method="post">
+         <p><input name="file" type="file"></p>
+         <p><label>Expires in <input name="expire" value="1"></label>
+            <select name="expire_unit">
+               <option>seconds</options>
+               <option>minutes</options>
+               <option selected>hours</options>
+               <option>days</options>
+               <option>weeks</options>
+            </select>
+         </p>
+         <p>Maximum expiration is @_MAX_EXPIRATION_@ @_MAX_EXPIRATION_UNIT_@ / (file size)</p>
+         <p>
+            <label>Comment:<br>
+               <textarea name="comment" cols="80" rows="10"></textarea>
+            </label>
+         </p>
+         <p><input name="submit" value="Send" type="submit"></p>
+      </form>
+   </body>
+</html>

@@ -1,0 +1,20 @@
+<html>
+   <head>
+      <title>File Report</title>
+   </head>
+   <body>
+      <h1>File Report</h1>
+      <ul>
+         <li>Uploaded as @_WEB_ESCAPE:NAME_@</li>
+         <li>File type: @_WEB_ESCAPE:MIME_TYPE_@</li>
+         <li>@_DIGEST_TYPE_@ digest: @_DIGEST_@</li>
+         <li>Upload date: @_UPLOAD_@</li>
+         <li>Expiration date: @_EXPIRATION_@ (in @_EXPIRATION_DELAY_@)</li>
+@@IF@@ @_DEBUG_@
+         <li>Download link : <a href="@_WEB_ESCAPE:DOWNLOAD_PATH_@">@_WEB_ESCAPE:DOWNLOAD_PATH_@</a></li>
+@@END_IF@@
+         <li>Comment: @_WEB_ESCAPE:COMMENT_@</li>
+      </ul>
+      <p><a href="/">Back to upload page</a></p>
+   </body>
+</html>

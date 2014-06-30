@@ -1,4 +1,4 @@
---  Generated at 2014-06-11 19:00:27 +0000 by Natools.Static_Hash_Maps
+--  Generated at 2014-06-30 18:14:28 +0000 by Natools.Static_Hash_Maps
 --  from src/simple_webapps-upload_servers-commands.sx
 
 package Simple_Webapps.Commands.Upload_Servers is
@@ -9,8 +9,10 @@ package Simple_Webapps.Commands.Upload_Servers is
       Set_Storage_File,
       Set_Directory,
       Set_HMAC_Key,
+      Set_Index_Template,
       Set_Input_Dir,
-      Set_Max_Expiration);
+      Set_Max_Expiration,
+      Set_Report_Template);
 
    type File_Command is
      (File_Error,
@@ -29,20 +31,26 @@ private
    Map_1_Key_0 : aliased constant String := "backend";
    Map_1_Key_1 : aliased constant String := "directory";
    Map_1_Key_2 : aliased constant String := "hmac-key";
-   Map_1_Key_3 : aliased constant String := "input-directory";
-   Map_1_Key_4 : aliased constant String := "max-expiration";
-   Map_1_Keys : constant array (0 .. 4) of access constant String
+   Map_1_Key_3 : aliased constant String := "index-template";
+   Map_1_Key_4 : aliased constant String := "input-directory";
+   Map_1_Key_5 : aliased constant String := "max-expiration";
+   Map_1_Key_6 : aliased constant String := "report-template";
+   Map_1_Keys : constant array (0 .. 6) of access constant String
      := (Map_1_Key_0'Access,
          Map_1_Key_1'Access,
          Map_1_Key_2'Access,
          Map_1_Key_3'Access,
-         Map_1_Key_4'Access);
-   Map_1_Elements : constant array (0 .. 4) of Config_Command
+         Map_1_Key_4'Access,
+         Map_1_Key_5'Access,
+         Map_1_Key_6'Access);
+   Map_1_Elements : constant array (0 .. 6) of Config_Command
      := (Set_Storage_File,
          Set_Directory,
          Set_HMAC_Key,
+         Set_Index_Template,
          Set_Input_Dir,
-         Set_Max_Expiration);
+         Set_Max_Expiration,
+         Set_Report_Template);
 
    Map_2_Key_0 : aliased constant String := "name";
    Map_2_Key_1 : aliased constant String := "comment";

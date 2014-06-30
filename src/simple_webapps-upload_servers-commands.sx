@@ -4,8 +4,10 @@
       Set_Storage_File,
       Set_Directory,
       Set_HMAC_Key,
+      Set_Index_Template,
       Set_Input_Dir,
-      Set_Max_Expiration);
+      Set_Max_Expiration,
+      Set_Report_Template);
 
    type File_Command is
      (File_Error,
@@ -21,11 +23,13 @@
       (function To_Config_Command)
       (not-found Config_Error)
       (nodes
-         (Set_Storage_File    backend)
-         (Set_Directory       directory)
-         (Set_HMAC_Key        hmac-key)
-         (Set_Input_Dir       input-directory)
-         (Set_Max_Expiration  max-expiration)))
+         (Set_Storage_File     backend)
+         (Set_Directory        directory)
+         (Set_HMAC_Key         hmac-key)
+         (Set_Index_Template   index-template)
+         (Set_Input_Dir        input-directory)
+         (Set_Max_Expiration   max-expiration)
+         (Set_Report_Template  report-template)))
    (File_Command
       (hash-package Simple_Webapps.Commands.Upload_Servers.File)
       (function To_File_Command)

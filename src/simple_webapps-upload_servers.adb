@@ -16,10 +16,13 @@
 
 with Ada.Calendar.Arithmetic;
 with Ada.Calendar.Formatting;
+with Ada.Strings.Fixed;
 
 with AWS.Attachments;
 with AWS.Messages;
 with AWS.Parameters;
+
+with Templates_Parser;
 
 with Natools.S_Expressions.File_Readers;
 
@@ -32,7 +35,10 @@ package body Simple_Webapps.Upload_Servers is
    function File_List (DB : Backend.Database) return AWS.Response.Data;
       --  Create a list of all files
 
-   function Report (File : Backend.File; Debug : Boolean)
+   function Report
+     (File : Backend.File;
+      Debug : Boolean;
+      Template : String := "")
      return AWS.Response.Data;
       --  Create a report page for the given file
 
@@ -146,6 +152,7 @@ package body Simple_Webapps.Upload_Servers is
       end case;
 
       declare
+         DB_Accessor : constant Database_Refs.Accessor := Dispatcher.DB.Query;
          URI : constant String := AWS.Status.URI (Request);
          Key : URI_Key;
          File : Backend.File;
@@ -153,10 +160,10 @@ package body Simple_Webapps.Upload_Servers is
          pragma Assert (URI (URI'First) = '/');
 
          if URI = "/" then
-            return Upload_Form (Dispatcher.DB.Query.Data.all);
-         elsif Dispatcher.DB.Query.Data.Debug_Activated then
+            return Upload_Form (DB_Accessor.Data.all);
+         elsif DB_Accessor.Data.Debug_Activated then
             if URI = "/list" then
-               return File_List (Dispatcher.DB.Query.Data.all);
+               return File_List (DB_Accessor.Data.all);
             end if;
          end if;
 
@@ -167,15 +174,18 @@ package body Simple_Webapps.Upload_Servers is
          Key := URI (URI'First + 1 .. URI'First + Key'Length);
 
          if URI'Length = Key'Length + 1 then
-            File := Dispatcher.DB.Query.Data.Report (Key);
+            File := DB_Accessor.Data.Report (Key);
             if not File.Is_Empty then
-               return Report (File, Dispatcher.DB.Query.Data.Debug_Activated);
+               return Report
+                 (File,
+                  DB_Accessor.Data.Debug_Activated,
+                  DB_Accessor.Data.Report_Template);
             end if;
          elsif URI (URI'First + Key'Length + 1) /= '/' then
             return AWS.Response.Acknowledge (AWS.Messages.S404);
          end if;
 
-         File := Dispatcher.DB.Query.Data.Download (Key);
+         File := DB_Accessor.Data.Download (Key);
 
          if not File.Is_Empty then
             return AWS.Response.File (File.MIME_Type, File.Path);
@@ -343,7 +353,10 @@ package body Simple_Webapps.Upload_Servers is
    end File_List;
 
 
-   function Report (File : Backend.File; Debug : Boolean)
+   function Report
+     (File : Backend.File;
+      Debug : Boolean;
+      Template : String := "")
      return AWS.Response.Data
    is
       function Image_Diff (Future, Now : Ada.Calendar.Time) return String;
@@ -399,39 +412,76 @@ package body Simple_Webapps.Upload_Servers is
 
       DL : String_Holder;
    begin
-      if Debug then
+      if Template = "" then
+         if Debug then
+            declare
+               DL_URI : constant String
+                 := '/' & File.Download & '/' & File.Name;
+            begin
+               DL := Hold ("<li>Download link: <a href=""" & DL_URI & """>"
+                 & DL_URI & "</a></li>");
+            end;
+         end if;
+
+         return AWS.Response.Build
+           ("text/html",
+            "<html><head><title>File Report</title></head>"
+            & "<body><h1>File Report</h1>"
+            & "<ul>"
+            & "<li>Uploaded as " & HTML_Escape (File.Name) & "</li>"
+            & "<li>File type: " & HTML_Escape (File.MIME_Type) & "</li>"
+            & "<li>" & File.Hash_Type & " digest: " & File.Hex_Digest & "</li>"
+            & "<li>Upload date: "
+            & Ada.Calendar.Formatting.Image (File.Upload) & "</li>"
+            & "<li>Expiration date: "
+            & Ada.Calendar.Formatting.Image (File.Expiration)
+            & " (in " & Image_Diff (File.Expiration, Ada.Calendar.Clock)
+            & ")</li>"
+            & To_String (DL)
+            & "<li>Comment: " & HTML_Escape (File.Comment) & "</li>"
+            & "</ul>"
+            & "<p><a href=""/"">Back to upload page</a></p>"
+            & "</body></html>");
+      else
          declare
-            DL_URI : constant String := '/' & File.Download & '/' & File.Name;
+            use Templates_Parser;
+            Debug_Assoc : constant Translate_Table
+              := (Assoc ("DEBUG", True),
+                  Assoc ("DOWNLOAD_KEY", File.Download),
+                  Assoc ("DOWNLOAD_PATH",
+                     '/' & File.Download & '/' & File.Name));
+            Core_Assoc : constant Translate_Table
+              := (Assoc ("NAME", File.Name),
+                  Assoc ("MIME_TYPE", File.MIME_Type),
+                  Assoc ("DIGEST_TYPE", File.Hash_Type),
+                  Assoc ("DIGEST", File.Hex_Digest),
+                  Assoc ("UPLOAD",
+                     Ada.Calendar.Formatting.Image (File.Upload)),
+                  Assoc ("EXPIRATION",
+                     Ada.Calendar.Formatting.Image (File.Expiration)),
+                  Assoc ("EXPIRATION_DELAY",
+                     Image_Diff (File.Expiration, Ada.Calendar.Clock)),
+                  Assoc ("COMMENT", File.Comment));
          begin
-            DL := Hold ("<li>Download link: <a href=""" & DL_URI & """>"
-              & DL_URI & "</a></li>");
+            if Debug then
+               return AWS.Response.Build
+                 ("text/html",
+                  String'(Parse (Template, Core_Assoc & Debug_Assoc)));
+            else
+               return AWS.Response.Build
+                 ("text/html",
+                  String'(Parse (Template, Core_Assoc
+                    & Assoc ("DEBUG", False))));
+            end if;
          end;
       end if;
-
-      return AWS.Response.Build
-        ("text/html",
-         "<html><head><title>File Report</title></head>"
-         & "<body><h1>File Report</h1>"
-         & "<ul>"
-         & "<li>Uploaded as " & HTML_Escape (File.Name) & "</li>"
-         & "<li>File type: " & HTML_Escape (File.MIME_Type) & "</li>"
-         & "<li>" & File.Hash_Type & " digest: " & File.Hex_Digest & "</li>"
-         & "<li>Upload date: "
-         & Ada.Calendar.Formatting.Image (File.Upload) & "</li>"
-         & "<li>Expiration date: "
-         & Ada.Calendar.Formatting.Image (File.Expiration)
-         & " (in " & Image_Diff (File.Expiration, Ada.Calendar.Clock)
-         & ")</li>"
-         & To_String (DL)
-         & "<li>Comment: " & HTML_Escape (File.Comment) & "</li>"
-         & "</ul>"
-         & "<p><a href=""/"">Back to upload page</a></p>"
-         & "</body></html>");
    end Report;
 
 
    function Upload_Form (DB : Backend.Database) return AWS.Response.Data is
-      Max_Exp : Size_Time := DB.Max_Expiration;
+      Template : constant String := DB.Index_Template;
+      Raw_Max_Exp : constant Size_Time := DB.Max_Expiration;
+      Max_Exp : Size_Time := Raw_Max_Exp;
       Time_Suffix : Character := 's';
       Size_Prefix : Character := ' ';
    begin
@@ -475,34 +525,56 @@ package body Simple_Webapps.Upload_Servers is
          end if;
       end if;
 
-      return AWS.Response.Build
-        ("text/html",
-         "<html><head><title>File Upload</title></head>"
-         & "<body><h1>File Upload</h1>"
-         & "<form enctype=""multipart/form-data"" action=""/post"""
-         & " method=""post"">"
-         & "<p><input name=""file"" type=""file""></p>"
-         & "<p><label>Expires in "
-         & "<input name=""expire"" value=""1""></label>"
-         & "<select name=""expire_unit"">"
-         & "<option>seconds</options>"
-         & "<option>minutes</options>"
-         & "<option selected>hours</options>"
-         & "<option>days</options>"
-         & "<option>weeks</options>"
-         & "</select></p>"
-         & "<p>Maximum expiration is" & Size_Time'Image (Max_Exp)
-         & ' ' & Size_Prefix & "B." & Time_Suffix & " / (file size)</p>"
-         & "<p><label>Comment:<br>"
-         & "<textarea name=""comment"" cols=""80"" rows=""10""></textarea>"
-         & "</label><?p>"
-         & "<p><input name=""submit"" value=""Send"""
-         & " type=""submit""></p>"
-         & "</form>"
-         & "<h2>Maintenance</h2>"
-         & "<form action=""/purge"" method=""post"">"
-         & "<p><input name=""submit"" value=""Purge"" type=""submit""></p>"
-         & "</form></body></html>");
+      if Template = "" then
+         return AWS.Response.Build
+           ("text/html",
+            "<html><head><title>File Upload</title></head>"
+            & "<body><h1>File Upload</h1>"
+            & "<form enctype=""multipart/form-data"" action=""/post"""
+            & " method=""post"">"
+            & "<p><input name=""file"" type=""file""></p>"
+            & "<p><label>Expires in "
+            & "<input name=""expire"" value=""1""></label>"
+            & "<select name=""expire_unit"">"
+            & "<option>seconds</options>"
+            & "<option>minutes</options>"
+            & "<option selected>hours</options>"
+            & "<option>days</options>"
+            & "<option>weeks</options>"
+            & "</select></p>"
+            & "<p>Maximum expiration is" & Size_Time'Image (Max_Exp)
+            & ' ' & Size_Prefix & "B." & Time_Suffix & " / (file size)</p>"
+            & "<p><label>Comment:<br>"
+            & "<textarea name=""comment"" cols=""80"" rows=""10""></textarea>"
+            & "</label></p>"
+            & "<p><input name=""submit"" value=""Send"""
+            & " type=""submit""></p>"
+            & "</form>"
+            & "<h2>Maintenance</h2>"
+            & "<form action=""/purge"" method=""post"">"
+            & "<p><input name=""submit"" value=""Purge"" type=""submit""></p>"
+            & "</form></body></html>");
+      else
+         return AWS.Response.Build
+           ("text/html",
+            String'(Templates_Parser.Parse (Template,
+              (Templates_Parser.Assoc ("MAX_EXPIRATION_BYTE_SECONDS",
+                  Ada.Strings.Fixed.Trim
+                    (Size_Time'Image (Raw_Max_Exp),
+                     Ada.Strings.Left)),
+               Templates_Parser.Assoc ("MAX_EXPIRATION",
+                  Ada.Strings.Fixed.Trim
+                    (Size_Time'Image (Max_Exp),
+                     Ada.Strings.Left)),
+               Templates_Parser.Assoc ("MAX_EXPIRATION_UNIT",
+                  Ada.Strings.Fixed.Trim
+                    (Size_Prefix & "B." & Time_Suffix,
+                     Ada.Strings.Left)),
+               Templates_Parser.Assoc ("MAX_EXPIRATION_PREFIX",
+                 (1 => Size_Prefix)),
+               Templates_Parser.Assoc ("MAX_EXPIRATION_SUFFIX",
+                 (1 => Time_Suffix))))));
+      end if;
    end Upload_Form;
 
 end Simple_Webapps.Upload_Servers;

@@ -7,3 +7,5 @@
 (hmac-key "Câlins")
 (max-expiration 100 MB.d)
 (input-directory /upload/incoming)
+(index-template index-tmpl.html)
+(report-template report-tmpl.html)
