@@ -20,6 +20,7 @@ with Ada.Strings.Fixed;
 
 with AWS.Attachments;
 with AWS.Messages;
+with AWS.MIME;
 with AWS.Parameters;
 
 with Templates_Parser;
@@ -154,6 +155,23 @@ package body Simple_Webapps.Upload_Servers is
       declare
          DB_Accessor : constant Database_Refs.Accessor := Dispatcher.DB.Query;
          URI : constant String := AWS.Status.URI (Request);
+
+         function Fallback return AWS.Response.Data;
+
+         function Fallback return AWS.Response.Data is
+            Root : constant String := DB_Accessor.Data.Static_Resource_Dir;
+            Path : constant String := Root & URI;
+         begin
+            if Root /= ""
+              and then Ada.Strings.Fixed.Index (URI, "/.") = 0
+              and then Ada.Directories.Exists (Path)
+            then
+               return AWS.Response.File (AWS.MIME.Content_Type (Path), Path);
+            else
+               return AWS.Response.Acknowledge (AWS.Messages.S404);
+            end if;
+         end Fallback;
+
          Key : URI_Key;
          File : Backend.File;
       begin
@@ -168,7 +186,7 @@ package body Simple_Webapps.Upload_Servers is
          end if;
 
          if URI'Length < Key'Length + 1 then
-            return AWS.Response.Acknowledge (AWS.Messages.S404);
+            return Fallback;
          end if;
 
          Key := URI (URI'First + 1 .. URI'First + Key'Length);
@@ -182,7 +200,7 @@ package body Simple_Webapps.Upload_Servers is
                   DB_Accessor.Data.Report_Template);
             end if;
          elsif URI (URI'First + Key'Length + 1) /= '/' then
-            return AWS.Response.Acknowledge (AWS.Messages.S404);
+            return Fallback;
          end if;
 
          File := DB_Accessor.Data.Download (Key);
@@ -190,7 +208,7 @@ package body Simple_Webapps.Upload_Servers is
          if not File.Is_Empty then
             return AWS.Response.File (File.MIME_Type, File.Path);
          else
-            return AWS.Response.Acknowledge (AWS.Messages.S404);
+            return Fallback;
          end if;
       end;
    end Dispatch;

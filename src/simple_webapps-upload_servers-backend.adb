@@ -322,6 +322,9 @@ package body Backend is
             when Commands.Set_Max_Expiration =>
                Set_Max_Expiration (State.Max_Expiration, Arguments);
 
+            when Commands.Set_Static_Dir =>
+               State.Static_Dir := Hold (Value);
+
             when Commands.Set_Report_Template =>
                State.Report_Template := Hold (Value);
          end case;
@@ -576,6 +579,12 @@ package body Backend is
       end Max_Expiration;
 
 
+      function Static_Resource_Dir return String is
+      begin
+         return To_String (Config.Static_Dir);
+      end Static_Resource_Dir;
+
+
       function Report_Template return String is
       begin
          return To_String (Config.Report_Template);
@@ -739,6 +748,7 @@ package body Backend is
            := (Storage_File => Hold ("/"),
                Directory => Atom_Refs.Null_Immutable_Reference,
                HMAC_Key | Input_Dir | Index_Template | Report_Template
+                 | Static_Dir
                  => Hold (""),
                Max_Expiration => <>,
                Printer_Param => S_Expressions.Printers.Pretty.Canonical);

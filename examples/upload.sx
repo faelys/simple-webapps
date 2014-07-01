@@ -9,3 +9,4 @@
 (input-directory /upload/incoming)
 (index-template index-tmpl.html)
 (report-template report-tmpl.html)
+(static-resources www-root)

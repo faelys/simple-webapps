@@ -7,7 +7,8 @@
       Set_Index_Template,
       Set_Input_Dir,
       Set_Max_Expiration,
-      Set_Report_Template);
+      Set_Report_Template,
+      Set_Static_Dir);
 
    type File_Command is
      (File_Error,
@@ -29,7 +30,8 @@
          (Set_Index_Template   index-template)
          (Set_Input_Dir        input-directory)
          (Set_Max_Expiration   max-expiration)
-         (Set_Report_Template  report-template)))
+         (Set_Report_Template  report-template)
+         (Set_Static_Dir       static static-dir static-resources)))
    (File_Command
       (hash-package Simple_Webapps.Commands.Upload_Servers.File)
       (function To_File_Command)

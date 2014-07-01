@@ -3,16 +3,16 @@ with Interfaces; use Interfaces;
 package body Simple_Webapps.Commands.Upload_Servers.Config is
 
    P : constant array (0 .. 1) of Natural :=
-     (1, 3);
+     (1, 8);
 
    T1 : constant array (0 .. 1) of Unsigned_8 :=
-     (14, 8);
+     (8, 0);
 
    T2 : constant array (0 .. 1) of Unsigned_8 :=
-     (9, 1);
+     (14, 21);
 
-   G : constant array (0 .. 14) of Unsigned_8 :=
-     (0, 0, 0, 0, 0, 0, 0, 6, 0, 1, 3, 5, 3, 6, 0);
+   G : constant array (0 .. 21) of Unsigned_8 :=
+     (1, 5, 0, 0, 9, 4, 5, 0, 0, 0, 1, 0, 0, 5, 0, 4, 0, 0, 8, 0, 0, 0);
 
    function Hash (S : String) return Natural is
       F : constant Natural := S'First - 1;
@@ -23,10 +23,10 @@ package body Simple_Webapps.Commands.Upload_Servers.Config is
       for K in P'Range loop
          exit when L < P (K);
          J  := Character'Pos (S (P (K) + F));
-         F1 := (F1 + Natural (T1 (K)) * J) mod 15;
-         F2 := (F2 + Natural (T2 (K)) * J) mod 15;
+         F1 := (F1 + Natural (T1 (K)) * J) mod 22;
+         F2 := (F2 + Natural (T2 (K)) * J) mod 22;
       end loop;
-      return (Natural (G (F1)) + Natural (G (F2))) mod 7;
+      return (Natural (G (F1)) + Natural (G (F2))) mod 10;
    end Hash;
 
 end Simple_Webapps.Commands.Upload_Servers.Config;
