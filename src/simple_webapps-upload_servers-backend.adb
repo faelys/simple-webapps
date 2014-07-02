@@ -310,6 +310,9 @@ package body Backend is
             when Commands.Set_Directory =>
                State.Directory := Atom_Refs.Create (Current_Atom'Access);
 
+            when Commands.Set_Error_Template =>
+               State.Error_Template := Hold (Value);
+
             when Commands.Set_HMAC_Key =>
                State.HMAC_Key := Hold (Value);
 
@@ -567,6 +570,12 @@ package body Backend is
       end Download;
 
 
+      function Error_Template return String is
+      begin
+         return To_String (Config.Error_Template);
+      end Error_Template;
+
+
       function Index_Template return String is
       begin
          return To_String (Config.Index_Template);
@@ -747,8 +756,8 @@ package body Backend is
          New_Data : Config_Data
            := (Storage_File => Hold ("/"),
                Directory => Atom_Refs.Null_Immutable_Reference,
-               HMAC_Key | Input_Dir | Index_Template | Report_Template
-                 | Static_Dir
+               HMAC_Key | Input_Dir | Static_Dir
+                 | Error_Template | Index_Template | Report_Template
                  => Hold (""),
                Max_Expiration => <>,
                Printer_Param => S_Expressions.Printers.Pretty.Canonical);

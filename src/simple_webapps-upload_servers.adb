@@ -33,6 +33,12 @@ package body Simple_Webapps.Upload_Servers is
 
    function Dump_Form (Request : AWS.Status.Data) return AWS.Response.Data;
 
+   function Error_Page
+     (Code : AWS.Messages.Status_Code;
+      Template : String := "")
+     return AWS.Response.Data;
+      --  Create an error page
+
    function File_List (DB : Backend.Database) return AWS.Response.Data;
       --  Create a list of all files
 
@@ -149,7 +155,11 @@ package body Simple_Webapps.Upload_Servers is
             null;  --  processed below
 
          when others =>
-            return AWS.Response.Acknowledge (AWS.Messages.S405);
+            begin  --  explicit block needed to work around a GNAT parsing bug
+               return Error_Page
+                 (AWS.Messages.S405,
+                  Dispatcher.DB.Query.Data.Error_Template);
+            end;
       end case;
 
       declare
@@ -168,7 +178,8 @@ package body Simple_Webapps.Upload_Servers is
             then
                return AWS.Response.File (AWS.MIME.Content_Type (Path), Path);
             else
-               return AWS.Response.Acknowledge (AWS.Messages.S404);
+               return Error_Page
+                 (AWS.Messages.S404, DB_Accessor.Data.Error_Template);
             end if;
          end Fallback;
 
@@ -330,6 +341,29 @@ package body Simple_Webapps.Upload_Servers is
 
       return AWS.Response.Build ("test/html", To_String (Page));
    end Dump_Form;
+
+
+   function Error_Page
+     (Code : AWS.Messages.Status_Code;
+      Template : String := "")
+     return AWS.Response.Data
+   is
+      Image : constant String := AWS.Messages.Image (Code);
+      Message : constant String := AWS.Messages.Reason_Phrase (Code);
+   begin
+      if Template = "" then
+         return AWS.Response.Acknowledge
+           (Code,
+            "<html><head><title>" & Image & ' ' & Message & "</title></head>"
+            & "<body><h1>" & Image & ' ' & Message & "</h1></body></html>");
+      else
+         return AWS.Response.Acknowledge
+           (Code,
+            String'(Templates_Parser.Parse (Template,
+              (Templates_Parser.Assoc ("CODE", Image),
+               Templates_Parser.Assoc ("MESSAGE", Message)))));
+      end if;
+   end Error_Page;
 
 
    function File_List (DB : Backend.Database) return AWS.Response.Data is

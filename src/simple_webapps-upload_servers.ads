@@ -108,6 +108,7 @@ private
 
          function Download (Key : URI_Key) return File;
 
+         function Error_Template return String;
          function Index_Template return String;
          function Max_Expiration return Size_Time;
          function Static_Resource_Dir return String;
@@ -187,6 +188,7 @@ private
 
       type Config_Data is record
          Storage_File : String_Holder;
+         Error_Template : String_Holder;
          Index_Template : String_Holder;
          Report_Template : String_Holder;
          Static_Dir : String_Holder;

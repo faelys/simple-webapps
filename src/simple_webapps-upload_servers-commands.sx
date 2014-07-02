@@ -3,6 +3,7 @@
      (Config_Error,
       Set_Storage_File,
       Set_Directory,
+      Set_Error_Template,
       Set_HMAC_Key,
       Set_Index_Template,
       Set_Input_Dir,
@@ -26,6 +27,7 @@
       (nodes
          (Set_Storage_File     backend)
          (Set_Directory        directory)
+         (Set_Error_Template   error-template)
          (Set_HMAC_Key         hmac-key)
          (Set_Index_Template   index-template)
          (Set_Input_Dir        input-directory)

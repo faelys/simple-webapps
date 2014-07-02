@@ -1,4 +1,4 @@
---  Generated at 2014-07-01 17:26:39 +0000 by Natools.Static_Hash_Maps
+--  Generated at 2014-07-02 17:53:59 +0000 by Natools.Static_Hash_Maps
 --  from src/simple_webapps-upload_servers-commands.sx
 
 package Simple_Webapps.Commands.Upload_Servers is
@@ -8,6 +8,7 @@ package Simple_Webapps.Commands.Upload_Servers is
      (Config_Error,
       Set_Storage_File,
       Set_Directory,
+      Set_Error_Template,
       Set_HMAC_Key,
       Set_Index_Template,
       Set_Input_Dir,
@@ -31,15 +32,16 @@ private
 
    Map_1_Key_0 : aliased constant String := "backend";
    Map_1_Key_1 : aliased constant String := "directory";
-   Map_1_Key_2 : aliased constant String := "hmac-key";
-   Map_1_Key_3 : aliased constant String := "index-template";
-   Map_1_Key_4 : aliased constant String := "input-directory";
-   Map_1_Key_5 : aliased constant String := "max-expiration";
-   Map_1_Key_6 : aliased constant String := "report-template";
-   Map_1_Key_7 : aliased constant String := "static";
-   Map_1_Key_8 : aliased constant String := "static-dir";
-   Map_1_Key_9 : aliased constant String := "static-resources";
-   Map_1_Keys : constant array (0 .. 9) of access constant String
+   Map_1_Key_2 : aliased constant String := "error-template";
+   Map_1_Key_3 : aliased constant String := "hmac-key";
+   Map_1_Key_4 : aliased constant String := "index-template";
+   Map_1_Key_5 : aliased constant String := "input-directory";
+   Map_1_Key_6 : aliased constant String := "max-expiration";
+   Map_1_Key_7 : aliased constant String := "report-template";
+   Map_1_Key_8 : aliased constant String := "static";
+   Map_1_Key_9 : aliased constant String := "static-dir";
+   Map_1_Key_10 : aliased constant String := "static-resources";
+   Map_1_Keys : constant array (0 .. 10) of access constant String
      := (Map_1_Key_0'Access,
          Map_1_Key_1'Access,
          Map_1_Key_2'Access,
@@ -49,10 +51,12 @@ private
          Map_1_Key_6'Access,
          Map_1_Key_7'Access,
          Map_1_Key_8'Access,
-         Map_1_Key_9'Access);
-   Map_1_Elements : constant array (0 .. 9) of Config_Command
+         Map_1_Key_9'Access,
+         Map_1_Key_10'Access);
+   Map_1_Elements : constant array (0 .. 10) of Config_Command
      := (Set_Storage_File,
          Set_Directory,
+         Set_Error_Template,
          Set_HMAC_Key,
          Set_Index_Template,
          Set_Input_Dir,
