@@ -78,7 +78,7 @@ if test -f $1; then
 	curl -F file=@"$1;type=$(file -i "$1" | sed 's/^.*: //')" \
 	    -F "expire=${EXPIRE% *}" \
 	    -F "expire_unit=${EXPIRE#* }" \
-	    -F comment=$2"${2:-Uploaded by script}" \
+	    -F comment="${2:-Uploaded by script}" \
 	    -F submit=Send \
 	    ${RATE_LIMIT:+--limit-rate} ${RATE_LIMIT} \
 	    "${ROOT_URI}post" \
