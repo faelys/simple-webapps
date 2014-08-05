@@ -74,10 +74,27 @@ if test -f $1; then
 		exit 1
 	fi
 
+	EXPIRE_NUMBER="${EXPIRE% *}"
+	if echo "${EXPIRE_NUMBER}" | grep '^[0-9]'; then
+		echo Invalid expiration number \"${EXPIRE_NUMBER}\" >&2
+		exit 1
+	fi
+
+	EXPIRE_UNIT="${EXPIRE#* }"
+	if ! test "${EXPIRE_UNIT}" = seconds \
+	    -o "${EXPIRE_UNIT}" = minutes \
+	    -o "${EXPIRE_UNIT}" = hours \
+	    -o "${EXPIRE_UNIT}" = days \
+	    -o "${EXPIRE_UNIT}" = weeks
+	then
+		echo "Invalid expiration unit \"${EXPIRE_UNIT}\"" >&2
+		exit 1
+	fi
+
 	BASE_NAME=$(basename "$1")
 	curl -F file=@"$1;type=$(file -i "$1" | sed 's/^.*: //')" \
-	    -F "expire=${EXPIRE% *}" \
-	    -F "expire_unit=${EXPIRE#* }" \
+	    -F "expire=${EXPIRE_NUMBER}" \
+	    -F "expire_unit=${EXPIRE_UNIT}" \
 	    -F comment="${2:-Uploaded by script}" \
 	    -F submit=Send \
 	    ${RATE_LIMIT:+--limit-rate} ${RATE_LIMIT} \
