@@ -40,7 +40,7 @@ if test $# -lt 1; then
 	   RATE_LIMIT  upload rate limit given to curl (defaults to 30 kB/s)
 	   ROOT_URI    upload server root
 	EOD
-	exit 1;
+	exit 1
 fi
 
 if test -f $1; then
@@ -99,7 +99,7 @@ if test -f $1; then
 	    -F submit=Send \
 	    ${RATE_LIMIT:+--limit-rate} ${RATE_LIMIT} \
 	    "${ROOT_URI}post" \
-	    || exit
+	    || exit $?
 else
 	HASH="${1##*/}"
 	BASE_NAME="$2"
@@ -115,7 +115,7 @@ if ! test -n "${HMAC_SHA1}"; then
 	else
 		echo "Unable to detect HMAC-SHA-1 tool," \
 		    "please set HMAC_SHA1" >&2
-		exit
+		exit 1
 	fi
 fi
 
