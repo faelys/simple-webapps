@@ -75,7 +75,7 @@ if test -f $1; then
 	fi
 
 	EXPIRE_NUMBER="${EXPIRE% *}"
-	if echo "${EXPIRE_NUMBER}" | grep '^[0-9]'; then
+	if echo "${EXPIRE_NUMBER}" | grep '[^0-9]'; then
 		echo Invalid expiration number \"${EXPIRE_NUMBER}\" >&2
 		exit 1
 	fi
