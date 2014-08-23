@@ -26,6 +26,7 @@ with AWS.Parameters;
 with Templates_Parser;
 
 with Natools.S_Expressions.File_Readers;
+with Natools.Time_IO.Human;
 
 package body Simple_Webapps.Upload_Servers is
 
@@ -411,57 +412,6 @@ package body Simple_Webapps.Upload_Servers is
       Template : String := "")
      return AWS.Response.Data
    is
-      function Image_Diff (Future, Now : Ada.Calendar.Time) return String;
-
-      function Image_Diff (Future, Now : Ada.Calendar.Time) return String is
-         use Ada.Calendar.Arithmetic;
-         use Ada.Calendar.Formatting;
-
-         Days : Day_Count;
-         Seconds : Duration;
-         Leap_Seconds : Leap_Seconds_Count;
-         Sub_Sec : Second_Duration;
-         Sec : Second_Number;
-         Min : Minute_Number;
-         Hour : Hour_Number;
-      begin
-         Difference (Future, Now, Days, Seconds, Leap_Seconds);
-         Split (Seconds + Duration (Leap_Seconds), Hour, Min, Sec, Sub_Sec);
-
-         if Days >= 10 then
-            if Hour >= 12 then
-               Days := Days + 1;
-            end if;
-            return Day_Count'Image (Days) & 'd';
-
-         elsif Days > 0 then
-            if Min >= 30 then
-               if Hour = Hour_Number'Last then
-                  return Day_Count'Image (Days + 1) & 'd';
-               else
-                  Hour := Hour + 1;
-               end if;
-            end if;
-            return Day_Count'Image (Days) & 'd'
-              & Hour_Number'Image (Hour) & 'h';
-
-         elsif Hour > 0 then
-            if Sec >= 30 then
-               if Min = Minute_Number'Last then
-                  return Hour_Number'Image (Hour + 1) & 'h';
-               else
-                  Min := Min + 1;
-               end if;
-            end if;
-            return Hour_Number'Image (Hour) & 'h'
-              & Minute_Number'Image (Min) & 'm';
-
-         else
-            return Minute_Number'Image (Min) & 'm'
-              & Second_Number'Image (Sec) & 's';
-         end if;
-      end Image_Diff;
-
       DL : String_Holder;
    begin
       if Template = "" then
@@ -487,7 +437,8 @@ package body Simple_Webapps.Upload_Servers is
             & Ada.Calendar.Formatting.Image (File.Upload) & "</li>"
             & "<li>Expiration date: "
             & Ada.Calendar.Formatting.Image (File.Expiration)
-            & " (in " & Image_Diff (File.Expiration, Ada.Calendar.Clock)
+            & " (in " & Natools.Time_IO.Human.Difference_Image
+                 (File.Expiration, Ada.Calendar.Clock, True)
             & ")</li>"
             & To_String (DL)
             & "<li>Comment: " & HTML_Escape (File.Comment) & "</li>"
@@ -512,7 +463,8 @@ package body Simple_Webapps.Upload_Servers is
                   Assoc ("EXPIRATION",
                      Ada.Calendar.Formatting.Image (File.Expiration)),
                   Assoc ("EXPIRATION_DELAY",
-                     Image_Diff (File.Expiration, Ada.Calendar.Clock)),
+                     Natools.Time_IO.Human.Difference_Image
+                       (File.Expiration, Ada.Calendar.Clock, True)),
                   Assoc ("COMMENT", File.Comment));
          begin
             if Debug then
