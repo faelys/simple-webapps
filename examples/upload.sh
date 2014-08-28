@@ -92,7 +92,7 @@ if test -f $1; then
 	fi
 
 	BASE_NAME=$(basename "$1")
-	curl -F file=@"$1;type=$(file -i "$1" | sed 's/^.*: //')" \
+	curl -F file=@"\"$1\";type=$(file -i "$1" | sed 's/^.*: //')" \
 	    -F "expire=${EXPIRE_NUMBER}" \
 	    -F "expire_unit=${EXPIRE_UNIT}" \
 	    -F comment="${2:-Uploaded by script}" \
