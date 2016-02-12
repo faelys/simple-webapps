@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2014, Natacha Porté
+# Copyright (c) 2014-2016, Natacha Porté
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -43,9 +43,9 @@ if test $# -lt 1; then
 	exit 1
 fi
 
-if test -f $1; then
+if test -f "$1"; then
 	if test -n "${HEX_SHA1}"; then
-		HEX_HASH=$(${HEX_SHA1} "$1")
+		HEX_HASH=$("${HEX_SHA1}" "$1")
 	elif test -x /sbin/sha1; then
 		# FreeBSD base sha1 tool
 		HEX_HASH=$(/sbin/sha1 -q "$1")
@@ -119,6 +119,6 @@ if ! test -n "${HMAC_SHA1}"; then
 	fi
 fi
 
-HMAC=$(${HMAC_SHA1} -b "${PINENTRY:+-p}${PINENTRY:--f-}" "${HASH}" \
+HMAC=$("${HMAC_SHA1}" -b "${PINENTRY:+-p}${PINENTRY:--f-}" "${HASH}" \
     | sed -e 'y,+/,-_,' -e 's/=//g')
 echo "Download at ${ROOT_URI}${HMAC}/${BASE_NAME:-filename}"
