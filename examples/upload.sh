@@ -119,6 +119,6 @@ if ! test -n "${HMAC_SHA1}"; then
 	fi
 fi
 
-HMAC=$("${HMAC_SHA1}" -b "${PINENTRY:+-p}${PINENTRY:--f-}" "${HASH}" \
+HMAC=$("${HMAC_SHA1}" -b "${PINENTRY:+-p}${PINENTRY:--f-}" -- "${HASH}" \
     | sed -e 'y,+/,-_,' -e 's/=//g')
 echo "Download at ${ROOT_URI}${HMAC}/${BASE_NAME:-filename}"
