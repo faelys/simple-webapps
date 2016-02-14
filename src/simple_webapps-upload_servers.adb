@@ -237,16 +237,25 @@ package body Simple_Webapps.Upload_Servers is
       Config_File : in String;
       Debug : in Boolean := False)
    is
-      function Create_DB return Backend.Database;
-      function Create_Timer return Natools.Cron.Cron_Entry;
-
       Reader : S_Expressions.File_Readers.S_Reader
         := S_Expressions.File_Readers.Reader (Config_File);
+   begin
+      Reset (Dispatcher, Reader, Debug);
+   end Reset;
+
+
+   procedure Reset
+     (Dispatcher : in out Handler;
+      Config : in out S_Expressions.Lockable.Descriptor'Class;
+      Debug : in Boolean := False)
+   is
+      function Create_DB return Backend.Database;
+      function Create_Timer return Natools.Cron.Cron_Entry;
 
       function Create_DB return Backend.Database is
       begin
          return DB : Backend.Database do
-            DB.Reset (Reader, Debug);
+            DB.Reset (Config, Debug);
          end return;
       end Create_DB;
 

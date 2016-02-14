@@ -29,6 +29,7 @@
 with AWS.Dispatchers;
 with AWS.Status;
 with AWS.Response;
+with Natools.S_Expressions.Lockable;
 
 private with Ada.Calendar;
 private with Ada.Containers.Ordered_Maps;
@@ -39,7 +40,6 @@ private with Natools.Cron;
 private with Natools.References;
 private with Natools.Storage_Pools;
 private with Natools.S_Expressions.Atom_Refs;
-private with Natools.S_Expressions.Lockable;
 private with Natools.S_Expressions.Printers.Pretty;
 
 package Simple_Webapps.Upload_Servers is
@@ -56,6 +56,11 @@ package Simple_Webapps.Upload_Servers is
    procedure Reset
      (Dispatcher : in out Handler;
       Config_File : in String;
+      Debug : in Boolean := False);
+
+   procedure Reset
+     (Dispatcher : in out Handler;
+      Config : in out Natools.S_Expressions.Lockable.Descriptor'Class;
       Debug : in Boolean := False);
 
 
