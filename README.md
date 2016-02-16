@@ -3,6 +3,18 @@
 This repository contains a collection of simple independent web
 applications, based on AWS.
 
+## Append Server
+
+The "Append Server" is one of the simple possible web applications: give an
+append-only access to local files through POST endpoints.
+
+In more details, each active endpoint is associated with a local file,
+expected form-like POST request with a `data` field containing the data to
+add and a `signature` field, containing a HAMC-SHA256 signature of the data
+to authenticate it. Requests outside of known active endpoints are matched
+against a given static file hierarchy, that may or may not contain a file
+updated by an active endpoint.
+
 ## Upload Server
 
 One of the easiest ways to copy a file from one computer to another is to
