@@ -1,0 +1,23 @@
+(Simple_Webapps.Commands.Append_Servers "\
+   type Endpoint_Command is
+     (Endpoint_Error,
+      Data_Path,
+      Force_Separator,
+      Invalid_Log,
+      Key,
+      No_Separator,
+      Redirect,
+      Separator_If_Needed);"
+   pure
+   (Endpoint_Command
+      (hash-package Simple_Webapps.Commands.Append_Servers.Endpoint_Hash)
+      (function To_Endpoint_Command)
+      (not-found Endpoint_Error)
+      (nodes
+         (Data_Path             data-path path file file-path)
+         (Force_Separator       force-separator)
+         (Invalid_Log           invalid-log)
+         (Key                   key)
+         (No_Separator          no-separator)
+         (Redirect              redirect location)
+         (Separator_If_Needed   separator-if-needed))))
