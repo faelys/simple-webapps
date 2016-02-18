@@ -20,6 +20,7 @@
 ------------------------------------------------------------------------------
 
 with Ada.Strings.Unbounded;
+with Natools.Constant_Indefinite_Ordered_Maps;
 with Natools.S_Expressions.Atom_Refs;
 
 package Simple_Webapps.Append_Servers is
@@ -92,5 +93,14 @@ package Simple_Webapps.Append_Servers is
       Data : in Sx.Atom;
       Signature : in Sx.Atom)
      return Execution_Results.Data;
+
+   package Endpoint_Maps is new Natools.Constant_Indefinite_Ordered_Maps
+     (String, Endpoint);
+
+   type Server_Data is record
+      Endpoints : Endpoint_Maps.Constant_Map;
+      Static_Path : String_Holder;
+      Template : String_Holder;
+   end record;
 
 end Simple_Webapps.Append_Servers;

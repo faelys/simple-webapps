@@ -38,9 +38,27 @@ package body Simple_Webapps.Append_Servers is
       Name : in Sx.Atom;
       Arguments : in out Sx.Lockable.Descriptor'Class);
 
+   procedure Set
+     (State : in out Endpoint_Maps.Unsafe_Maps.Map;
+      Context : in Natools.Meaningless_Type;
+      Name : in Sx.Atom;
+      Arguments : in out Sx.Lockable.Descriptor'Class);
+
+   procedure Set
+     (State : in out Server_Data;
+      Context : in String;
+      Name : in Sx.Atom;
+      Arguments : in out Sx.Lockable.Descriptor'Class);
+
 
    procedure Interpreter is new Sx.Interpreter_Loop
-     (Endpoint, String, Set) with Unreferenced;
+     (Endpoint, String, Set);
+
+   procedure Interpreter is new Sx.Interpreter_Loop
+     (Endpoint_Maps.Unsafe_Maps.Map, Natools.Meaningless_Type, Set);
+
+   procedure Interpreter is new Sx.Interpreter_Loop
+     (Server_Data, String, Set) with Unreferenced;
 
 
 
@@ -198,6 +216,67 @@ package body Simple_Webapps.Append_Servers is
                State.Separator
                  := (Action => Separator_If_Needed,
                      Data => Constructors.Create (Arguments.Current_Atom));
+            end if;
+      end case;
+   end Set;
+
+
+
+   -----------------------------
+   -- Server-Wide Subprograms --
+   -----------------------------
+
+   procedure Set
+     (State : in out Endpoint_Maps.Unsafe_Maps.Map;
+      Context : in Natools.Meaningless_Type;
+      Name : in Sx.Atom;
+      Arguments : in out Sx.Lockable.Descriptor'Class)
+   is
+      use type Sx.Events.Event;
+      pragma Unreferenced (Context);
+      S_Name : constant String := Sx.To_String (Name);
+      Item : Endpoint;
+   begin
+      Interpreter (Arguments, Item, S_Name);
+
+      if Item.Key.Is_Empty or else To_String (Item.Data_Path) = "" then
+         return;
+      end if;
+
+      State.Include (S_Name, Item);
+   end Set;
+
+
+   procedure Set
+     (State : in out Server_Data;
+      Context : in String;
+      Name : in Sx.Atom;
+      Arguments : in out Sx.Lockable.Descriptor'Class)
+   is
+      use type Sx.Events.Event;
+   begin
+      case Commands.To_Server_Command (Sx.To_String (Name)) is
+         when Commands.Server_Error =>
+            Log ("Unknown command """ & Sx.To_String (Name)
+              & """ for server data in """ & Context & '"');
+
+         when Commands.Endpoints =>
+            declare
+               New_Map : Endpoint_Maps.Unsafe_Maps.Map;
+            begin
+               Interpreter (Arguments, New_Map, Natools.Meaningless_Value);
+               State.Endpoints := Endpoint_Maps.Create (New_Map);
+            end;
+
+         when Commands.Static_Path =>
+            if Arguments.Current_Event = Sx.Events.Add_Atom then
+               State.Static_Path
+                 := Hold (Sx.To_String (Arguments.Current_Atom));
+            end if;
+
+         when Commands.Template =>
+            if Arguments.Current_Event = Sx.Events.Add_Atom then
+               State.Template := Hold (Sx.To_String (Arguments.Current_Atom));
             end if;
       end case;
    end Set;

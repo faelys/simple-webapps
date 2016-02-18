@@ -1,7 +1,8 @@
---  Generated at 2016-02-17 19:37:34 +0000 by Natools.Static_Hash_Maps
+--  Generated at 2016-02-18 17:58:23 +0000 by Natools.Static_Hash_Maps
 --  from src/simple_webapps-append_servers-maps.sx
 
 with Simple_Webapps.Commands.Append_Servers.Endpoint_Hash;
+with Simple_Webapps.Commands.Append_Servers.Server_Hash;
 
 package body Simple_Webapps.Commands.Append_Servers is
 
@@ -15,5 +16,17 @@ package body Simple_Webapps.Commands.Append_Servers is
          return Endpoint_Error;
       end if;
    end To_Endpoint_Command;
+
+
+   function To_Server_Command (Key : String) return Server_Command is
+      N : constant Natural
+        := Simple_Webapps.Commands.Append_Servers.Server_Hash.Hash (Key);
+   begin
+      if Map_2_Keys (N).all = Key then
+         return Map_2_Elements (N);
+      else
+         return Server_Error;
+      end if;
+   end To_Server_Command;
 
 end Simple_Webapps.Commands.Append_Servers;

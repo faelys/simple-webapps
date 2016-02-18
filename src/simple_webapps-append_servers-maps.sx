@@ -7,7 +7,13 @@
       Key,
       No_Separator,
       Redirect,
-      Separator_If_Needed);"
+      Separator_If_Needed);
+
+   type Server_Command is
+     (Server_Error,
+      Endpoints,
+      Static_Path,
+      Template);"
    pure
    (Endpoint_Command
       (hash-package Simple_Webapps.Commands.Append_Servers.Endpoint_Hash)
@@ -20,4 +26,12 @@
          (Key                   key)
          (No_Separator          no-separator)
          (Redirect              redirect location)
-         (Separator_If_Needed   separator-if-needed))))
+         (Separator_If_Needed   separator-if-needed)))
+   (Server_Command
+      (hash-package Simple_Webapps.Commands.Append_Servers.Server_Hash)
+      (function To_Server_Command)
+      (not-found Server_Error)
+      (nodes
+         (Endpoints     endpoints)
+         (Static_Path   static static-path)
+         (Template      template))))

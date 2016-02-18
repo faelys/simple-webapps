@@ -1,4 +1,4 @@
---  Generated at 2016-02-17 19:37:34 +0000 by Natools.Static_Hash_Maps
+--  Generated at 2016-02-18 17:58:23 +0000 by Natools.Static_Hash_Maps
 --  from src/simple_webapps-append_servers-maps.sx
 
 package Simple_Webapps.Commands.Append_Servers is
@@ -14,7 +14,14 @@ package Simple_Webapps.Commands.Append_Servers is
       Redirect,
       Separator_If_Needed);
 
+   type Server_Command is
+     (Server_Error,
+      Endpoints,
+      Static_Path,
+      Template);
+
    function To_Endpoint_Command (Key : String) return Endpoint_Command;
+   function To_Server_Command (Key : String) return Server_Command;
 
 private
 
@@ -53,5 +60,20 @@ private
          Redirect,
          Redirect,
          Separator_If_Needed);
+
+   Map_2_Key_0 : aliased constant String := "endpoints";
+   Map_2_Key_1 : aliased constant String := "static";
+   Map_2_Key_2 : aliased constant String := "static-path";
+   Map_2_Key_3 : aliased constant String := "template";
+   Map_2_Keys : constant array (0 .. 3) of access constant String
+     := (Map_2_Key_0'Access,
+         Map_2_Key_1'Access,
+         Map_2_Key_2'Access,
+         Map_2_Key_3'Access);
+   Map_2_Elements : constant array (0 .. 3) of Server_Command
+     := (Endpoints,
+         Static_Path,
+         Static_Path,
+         Template);
 
 end Simple_Webapps.Commands.Append_Servers;
