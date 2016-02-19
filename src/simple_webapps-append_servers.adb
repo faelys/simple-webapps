@@ -15,15 +15,24 @@
 ------------------------------------------------------------------------------
 
 with Ada.Calendar;
+with Ada.Directories;
 with Ada.Streams.Stream_IO;
+with Ada.Strings.Fixed;
+with AWS.Messages;
+with AWS.MIME;
+with AWS.Parameters;
+with AWS.Response.Set;
 with Natools.File_Streams;
 with Natools.GNAT_HMAC.SHA256;
 with Natools.S_Expressions.Atom_Ref_Constructors;
+with Natools.S_Expressions.Encodings;
+with Natools.S_Expressions.File_Readers;
 with Natools.S_Expressions.File_Writers;
 with Natools.S_Expressions.Interpreter_Loop;
 with Natools.S_Expressions.Lockable;
 with Natools.Time_IO.RFC_3339;
 with Simple_Webapps.Commands.Append_Servers;
+with Templates_Parser;
 
 package body Simple_Webapps.Append_Servers is
 
@@ -31,6 +40,13 @@ package body Simple_Webapps.Append_Servers is
    package Constructors renames Natools.S_Expressions.Atom_Ref_Constructors;
    package HMAC renames Natools.GNAT_HMAC.SHA256;
 
+
+   function Simple_Response
+     (Code : AWS.Messages.Status_Code;
+      Template : String := "";
+      Location : String := "";
+      Allow : String := "")
+     return AWS.Response.Data;
 
    procedure Set
      (State : in out Endpoint;
@@ -58,7 +74,7 @@ package body Simple_Webapps.Append_Servers is
      (Endpoint_Maps.Unsafe_Maps.Map, Natools.Meaningless_Type, Set);
 
    procedure Interpreter is new Sx.Interpreter_Loop
-     (Server_Data, String, Set) with Unreferenced;
+     (Server_Data, String, Set);
 
 
 
@@ -221,7 +237,6 @@ package body Simple_Webapps.Append_Servers is
    end Set;
 
 
-
    -----------------------------
    -- Server-Wide Subprograms --
    -----------------------------
@@ -280,5 +295,150 @@ package body Simple_Webapps.Append_Servers is
             end if;
       end case;
    end Set;
+
+
+   -----------------
+   -- AWS Handler --
+   -----------------
+
+   overriding function Dispatch
+     (Dispatcher : in Handler;
+      Request : in AWS.Status.Data)
+     return AWS.Response.Data
+   is
+      Accessor : constant Server_Refs.Accessor := Dispatcher.Ref.Query;
+      URI : constant String := AWS.Status.URI (Request);
+      Cursor : constant Endpoint_Maps.Cursor := Accessor.Endpoints.Find (URI);
+
+      use type AWS.Status.Request_Method;
+   begin
+      if not Endpoint_Maps.Has_Element (Cursor) then
+         Dispatch_Static_File :
+         declare
+            Path : constant String := To_String (Accessor.Static_Path) & URI;
+         begin
+            if Ada.Strings.Fixed.Index (URI, "/.") /= 0
+              or else not Ada.Directories.Exists (Path)
+            then
+               return Simple_Response
+                 (AWS.Messages.S404, To_String (Accessor.Template));
+            elsif AWS.Status.Method (Request) /= AWS.Status.GET then
+               return Simple_Response
+                 (AWS.Messages.S405,
+                  To_String (Accessor.Template),
+                  Allow => "GET");
+            else
+               return AWS.Response.File (AWS.MIME.Content_Type (Path), Path);
+            end if;
+         end Dispatch_Static_File;
+      end if;
+
+      if AWS.Status.Method (Request) /= AWS.Status.POST then
+         return Simple_Response
+           (AWS.Messages.S405, To_String (Accessor.Template), Allow => "POST");
+      end if;
+
+      declare
+         Parameters : constant AWS.Parameters.List
+           := AWS.Status.Parameters (Request);
+         Data : constant Sx.Atom
+           := Sx.To_Atom (AWS.Parameters.Get (Parameters, "data"));
+         Signature : constant Sx.Atom
+           := Sx.To_Atom (AWS.Parameters.Get (Parameters, "signature"));
+         Result : constant Execution_Results.Data := Execute
+           (Accessor.Endpoints.Constant_Reference (Cursor),
+            Data,
+            Sx.Encodings.Decode_Hex (Signature));
+      begin
+         case Result.State is
+            when Execution_Results.OK =>
+               if To_String (Result.Redirect) /= "" then
+                  return Simple_Response
+                    (AWS.Messages.S303, To_String (Accessor.Template),
+                     Location => To_String (Result.Redirect));
+               else
+                  return Simple_Response
+                    (AWS.Messages.S200, To_String (Accessor.Template));
+               end if;
+            when Execution_Results.Invalid_Signature =>
+               return Simple_Response
+                 (AWS.Messages.S403, To_String (Accessor.Template));
+            when Execution_Results.File_Error =>
+               return Simple_Response
+                 (AWS.Messages.S500, To_String (Accessor.Template));
+         end case;
+      end;
+   end Dispatch;
+
+
+   overriding function Clone (Dispatcher : in Handler) return Handler is
+   begin
+      return Dispatcher;
+   end Clone;
+
+
+   not overriding procedure Reset
+     (Dispatcher : in out Handler;
+      Config_File : in String)
+   is
+      New_Server : constant Server_Refs.Data_Access := new Server_Data;
+      New_Ref : constant Server_Refs.Immutable_Reference
+        := Server_Refs.Create (New_Server);
+   begin
+      declare
+         Reader : Sx.File_Readers.S_Reader
+           := Sx.File_Readers.Reader (Config_File);
+      begin
+         Interpreter (Reader, New_Server.all, Config_File);
+      end;
+
+      Dispatcher.Ref := New_Ref;
+   end Reset;
+
+
+   function Simple_Response
+     (Code : AWS.Messages.Status_Code;
+      Template : String := "";
+      Location : String := "";
+      Allow : String := "")
+     return AWS.Response.Data
+   is
+      function Response_Body return String;
+
+      Image : constant String := AWS.Messages.Image (Code);
+      Message : constant String := AWS.Messages.Reason_Phrase (Code);
+
+      function Response_Body return String is
+      begin
+         if Template = "" then
+            return "<html><head><title>" & Image & ' ' & Message
+              & "</title></head>"
+              & "<body><h1>" & Image & ' ' & Message & "</h1></body></html>";
+         else
+            return Templates_Parser.Parse (Template,
+              (Templates_Parser.Assoc ("CODE", Image),
+               Templates_Parser.Assoc ("MESSAGE", Message)));
+         end if;
+      end Response_Body;
+
+      Result : AWS.Response.Data := AWS.Response.Build
+        ("text/html", Response_Body, Code);
+   begin
+      if Allow /= "" then
+         AWS.Response.Set.Add_Header
+           (Result,
+            AWS.Messages.Allow_Token,
+            Allow);
+      end if;
+
+      if Location /= "" then
+         AWS.Response.Set.Add_Header
+           (Result,
+            AWS.Messages.Location_Token,
+            Location);
+      end if;
+
+      return Result;
+   end Simple_Response;
 
 end Simple_Webapps.Append_Servers;

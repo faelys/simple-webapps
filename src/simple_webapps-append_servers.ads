@@ -19,11 +19,31 @@
 -- request by appending signed data to a given local file.                  --
 ------------------------------------------------------------------------------
 
-with Ada.Strings.Unbounded;
-with Natools.Constant_Indefinite_Ordered_Maps;
-with Natools.S_Expressions.Atom_Refs;
+with AWS.Dispatchers;
+with AWS.Response;
+with AWS.Status;
+
+private with Ada.Strings.Unbounded;
+private with Natools.Constant_Indefinite_Ordered_Maps;
+private with Natools.References;
+private with Natools.Storage_Pools;
+private with Natools.S_Expressions.Atom_Refs;
 
 package Simple_Webapps.Append_Servers is
+
+   type Handler is new AWS.Dispatchers.Handler with private;
+
+   overriding function Dispatch
+     (Dispatcher : in Handler;
+      Request : in AWS.Status.Data)
+     return AWS.Response.Data;
+
+   overriding function Clone (Dispatcher : in Handler) return Handler;
+
+   not overriding procedure Reset
+     (Dispatcher : in out Handler;
+      Config_File : in String);
+
 
    type Log_Procedure is not null access procedure (Message : in String);
 
@@ -34,6 +54,7 @@ package Simple_Webapps.Append_Servers is
       --  this procedure is called from an AWS reponse callback without
       --  any protection, so it should be made task-safe.
 
+private
 
    package Sx renames Natools.S_Expressions;
 
@@ -101,6 +122,15 @@ package Simple_Webapps.Append_Servers is
       Endpoints : Endpoint_Maps.Constant_Map;
       Static_Path : String_Holder;
       Template : String_Holder;
+   end record;
+
+   package Server_Refs is new Natools.References
+     (Server_Data,
+      Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool,
+      Natools.Storage_Pools.Access_In_Default_Pool'Storage_Pool);
+
+   type Handler is new AWS.Dispatchers.Handler with record
+      Ref : Server_Refs.Immutable_Reference;
    end record;
 
 end Simple_Webapps.Append_Servers;
