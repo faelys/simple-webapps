@@ -29,7 +29,6 @@ with Natools.S_Expressions.Encodings;
 with Natools.S_Expressions.File_Readers;
 with Natools.S_Expressions.File_Writers;
 with Natools.S_Expressions.Interpreter_Loop;
-with Natools.S_Expressions.Lockable;
 with Natools.Time_IO.RFC_3339;
 with Simple_Webapps.Commands.Append_Servers;
 with Templates_Parser;
@@ -381,17 +380,23 @@ package body Simple_Webapps.Append_Servers is
      (Dispatcher : in out Handler;
       Config_File : in String)
    is
+      Reader : Sx.File_Readers.S_Reader
+        := Sx.File_Readers.Reader (Config_File);
+   begin
+      Reset (Dispatcher, Reader, Config_File);
+   end Reset;
+
+
+   not overriding procedure Reset
+     (Dispatcher : in out Handler;
+      Config : in out Natools.S_Expressions.Lockable.Descriptor'Class;
+      File_Name : in String)
+   is
       New_Server : constant Server_Refs.Data_Access := new Server_Data;
       New_Ref : constant Server_Refs.Immutable_Reference
         := Server_Refs.Create (New_Server);
    begin
-      declare
-         Reader : Sx.File_Readers.S_Reader
-           := Sx.File_Readers.Reader (Config_File);
-      begin
-         Interpreter (Reader, New_Server.all, Config_File);
-      end;
-
+      Interpreter (Config, New_Server.all, File_Name);
       Dispatcher.Ref := New_Ref;
    end Reset;
 

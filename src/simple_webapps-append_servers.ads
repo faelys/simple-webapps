@@ -22,6 +22,7 @@
 with AWS.Dispatchers;
 with AWS.Response;
 with AWS.Status;
+with Natools.S_Expressions.Lockable;
 
 private with Ada.Strings.Unbounded;
 private with Natools.Constant_Indefinite_Ordered_Maps;
@@ -43,6 +44,11 @@ package Simple_Webapps.Append_Servers is
    not overriding procedure Reset
      (Dispatcher : in out Handler;
       Config_File : in String);
+
+   not overriding procedure Reset
+     (Dispatcher : in out Handler;
+      Config : in out Natools.S_Expressions.Lockable.Descriptor'Class;
+      File_Name : in String);
 
 
    type Log_Procedure is not null access procedure (Message : in String);
