@@ -3,7 +3,7 @@ with "../ada-syslog/adasyslog_gnat";
 
 project Tests is
    for Source_Dirs use ("tests");
-   for Main use ("upload_server.adb", "append_server.adb");
+   for Main use ("upload_server.adb", "append_server.adb", "all_servers.adb");
 
    for Object_Dir use Webapps'Object_Dir;
    for Exec_Dir use Webapps'Exec_Dir;
