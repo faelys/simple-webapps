@@ -12,6 +12,10 @@ project Tests is
       for Default_Switches use Webapps.Compiler'Default_Switches;
    end Compiler;
 
+   package Binder is
+      for Default_Switches ("Ada") use ("-E");
+   end Binder;
+
    package Linker is
       for Default_Switches use Webapps.Linker'Default_Switches;
    end Linker;
