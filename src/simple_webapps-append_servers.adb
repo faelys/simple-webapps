@@ -18,6 +18,7 @@ with Ada.Calendar;
 with Ada.Directories;
 with Ada.Streams.Stream_IO;
 with Ada.Strings.Fixed;
+with Ada.IO_Exceptions;
 with AWS.Messages;
 with AWS.MIME;
 with AWS.Parameters;
@@ -85,10 +86,24 @@ package body Simple_Webapps.Append_Servers is
      (Self : in Endpoint;
       Data : in Sx.Atom)
    is
+      function Open_File (Name : String)
+        return Natools.File_Streams.File_Stream;
+
+
+      function Open_File (Name : String)
+        return Natools.File_Streams.File_Stream is
+      begin
+         return Natools.File_Streams.Open
+           (Ada.Streams.Stream_IO.Append_File, Name);
+      exception
+         when Ada.IO_Exceptions.Name_Error =>
+            return Natools.File_Streams.Create
+              (Ada.Streams.Stream_IO.Append_File, Name);
+      end Open_File;
+
+
       File : Natools.File_Streams.File_Stream
-        := Natools.File_Streams.Open
-           (Ada.Streams.Stream_IO.Append_File,
-            To_String (Self.Data_Path));
+        := Open_File (To_String (Self.Data_Path));
    begin
       File.Write (Data);
    end Append_Data;
