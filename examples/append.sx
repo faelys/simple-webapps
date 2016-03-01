@@ -1,0 +1,8 @@
+(static-path www-root)
+(endpoints
+   ("/test"
+      (data-path "www-root/test.txt")
+      (key "test-key")
+      (separator-if-needed #0A#)
+      (invalid-log "invalid-append.sx")
+      (redirect "/test.txt")))
