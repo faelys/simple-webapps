@@ -1,0 +1,23 @@
+(append append.instinctive.eu
+   (static-path www-root)
+   (endpoints
+      ("/test"
+         (data-path "www-root/test.txt")
+         (key "test-key")
+         (separator-if-needed #0A#)
+         (invalid-log "invalid-append.sx")
+         (redirect "/test.txt"))))
+(upload upload.instinctive.eu
+   (backend "/home/nat/tmp/upload/database.sx"
+      utf-8 token single-line-quoted-string upper-hex
+      (newline lf none atom-open close-open)
+      (indentation 3 spaces)
+      (escape hexadecimal))
+   (directory "/home/nat/tmp/upload")
+   (hmac-key "Câlins")
+   (max-expiration 100 MB.d)
+   (input-directory /upload/incoming)
+   (error-template error-tmpl.html)
+   (index-template index-tmpl.html)
+   (report-template report-tmpl.html)
+   (static-resources www-root))
