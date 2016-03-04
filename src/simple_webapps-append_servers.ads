@@ -29,6 +29,7 @@ private with Natools.Constant_Indefinite_Ordered_Maps;
 private with Natools.References;
 private with Natools.Storage_Pools;
 private with Natools.S_Expressions.Atom_Refs;
+private with Natools.S_Expressions.Printers.Pretty;
 
 package Simple_Webapps.Append_Servers is
 
@@ -90,6 +91,7 @@ private
       Key : Sx.Atom_Refs.Immutable_Reference;
       Separator : Separator_Data;
       Redirect : String_Holder;
+      Pretty_Printer : Sx.Printers.Pretty.Parameters;
    end record;
 
    procedure Append_Data
@@ -125,6 +127,7 @@ private
      (String, Endpoint);
 
    type Server_Data is record
+      Default_Printer : Sx.Printers.Pretty.Parameters;
       Endpoints : Endpoint_Maps.Constant_Map;
       Static_Path : String_Holder;
       Template : String_Holder;

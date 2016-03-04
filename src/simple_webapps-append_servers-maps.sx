@@ -11,6 +11,7 @@
 
    type Server_Command is
      (Server_Error,
+      Default_Printer,
       Endpoints,
       Static_Path,
       Template);"
@@ -32,6 +33,7 @@
       (function To_Server_Command)
       (not-found Server_Error)
       (nodes
+         (Default_Printer   default-printer default-pretty-printer pretty-printer)
          (Endpoints     endpoints)
          (Static_Path   static static-path)
          (Template      template))))

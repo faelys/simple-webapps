@@ -30,6 +30,7 @@ with Natools.S_Expressions.Encodings;
 with Natools.S_Expressions.File_Readers;
 with Natools.S_Expressions.File_Writers;
 with Natools.S_Expressions.Interpreter_Loop;
+with Natools.S_Expressions.Printers.Pretty.Config;
 with Natools.Time_IO.RFC_3339;
 with Simple_Webapps.Commands.Append_Servers;
 with Templates_Parser;
@@ -56,7 +57,7 @@ package body Simple_Webapps.Append_Servers is
 
    procedure Set
      (State : in out Endpoint_Maps.Unsafe_Maps.Map;
-      Context : in Natools.Meaningless_Type;
+      Context : in Sx.Printers.Pretty.Parameters;
       Name : in Sx.Atom;
       Arguments : in out Sx.Lockable.Descriptor'Class);
 
@@ -71,7 +72,7 @@ package body Simple_Webapps.Append_Servers is
      (Endpoint, String, Set);
 
    procedure Interpreter is new Sx.Interpreter_Loop
-     (Endpoint_Maps.Unsafe_Maps.Map, Natools.Meaningless_Type, Set);
+     (Endpoint_Maps.Unsafe_Maps.Map, Sx.Printers.Pretty.Parameters, Set);
 
    procedure Interpreter is new Sx.Interpreter_Loop
      (Server_Data, String, Set);
@@ -125,6 +126,8 @@ package body Simple_Webapps.Append_Servers is
          Log_File : Sx.File_Writers.Writer
            := Sx.File_Writers.Open (To_String (Self.Invalid_Log));
       begin
+         Log_File.Set_Parameters (Self.Pretty_Printer);
+
          Log_File.Open_List;
          Log_File.Append_String (Natools.Time_IO.RFC_3339.Image
            (Ada.Calendar.Clock, Subsecond_Digits => 3));
@@ -150,6 +153,12 @@ package body Simple_Webapps.Append_Servers is
          Log_File.Close_List;
 
          Log_File.Close_List;
+
+         if Self.Pretty_Printer.Newline_At
+           (Sx.Printers.Pretty.Closing, Sx.Printers.Pretty.Opening)
+         then
+            Log_File.Newline;
+         end if;
       end;
    end Log_Invalid;
 
@@ -203,6 +212,7 @@ package body Simple_Webapps.Append_Servers is
       Name : in Sx.Atom;
       Arguments : in out Sx.Lockable.Descriptor'Class)
    is
+      Event : Sx.Events.Event;
       use type Sx.Events.Event;
    begin
       case Commands.To_Endpoint_Command (Sx.To_String (Name)) is
@@ -226,6 +236,17 @@ package body Simple_Webapps.Append_Servers is
             if Arguments.Current_Event = Sx.Events.Add_Atom then
                State.Invalid_Log
                  := Hold (Sx.To_String (Arguments.Current_Atom));
+               Arguments.Next (Event);
+
+               case (Event) is
+                  when Sx.Events.Add_Atom | Sx.Events.Open_List =>
+                     Sx.Printers.Pretty.Config.Update
+                       (State.Pretty_Printer, Arguments);
+
+                  when Sx.Events.Close_List | Sx.Events.End_Of_Input
+                    | Sx.Events.Error =>
+                     null;
+               end case;
             end if;
 
          when Commands.Key =>
@@ -257,15 +278,15 @@ package body Simple_Webapps.Append_Servers is
 
    procedure Set
      (State : in out Endpoint_Maps.Unsafe_Maps.Map;
-      Context : in Natools.Meaningless_Type;
+      Context : in Sx.Printers.Pretty.Parameters;
       Name : in Sx.Atom;
       Arguments : in out Sx.Lockable.Descriptor'Class)
    is
       use type Sx.Events.Event;
-      pragma Unreferenced (Context);
       S_Name : constant String := Sx.To_String (Name);
       Item : Endpoint;
    begin
+      Item.Pretty_Printer := Context;
       Interpreter (Arguments, Item, S_Name);
 
       if Item.Key.Is_Empty or else To_String (Item.Data_Path) = "" then
@@ -289,11 +310,15 @@ package body Simple_Webapps.Append_Servers is
             Log ("Unknown command """ & Sx.To_String (Name)
               & """ for server data in """ & Context & '"');
 
+         when Commands.Default_Printer =>
+            Sx.Printers.Pretty.Config.Update
+              (State.Default_Printer, Arguments);
+
          when Commands.Endpoints =>
             declare
                New_Map : Endpoint_Maps.Unsafe_Maps.Map;
             begin
-               Interpreter (Arguments, New_Map, Natools.Meaningless_Value);
+               Interpreter (Arguments, New_Map, State.Default_Printer);
                State.Endpoints := Endpoint_Maps.Create (New_Map);
             end;
 

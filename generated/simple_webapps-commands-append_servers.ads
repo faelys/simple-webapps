@@ -1,4 +1,4 @@
---  Generated at 2016-02-18 17:58:23 +0000 by Natools.Static_Hash_Maps
+--  Generated at 2016-03-04 22:16:27 +0000 by Natools.Static_Hash_Maps
 --  from src/simple_webapps-append_servers-maps.sx
 
 package Simple_Webapps.Commands.Append_Servers is
@@ -16,6 +16,7 @@ package Simple_Webapps.Commands.Append_Servers is
 
    type Server_Command is
      (Server_Error,
+      Default_Printer,
       Endpoints,
       Static_Path,
       Template);
@@ -61,17 +62,26 @@ private
          Redirect,
          Separator_If_Needed);
 
-   Map_2_Key_0 : aliased constant String := "endpoints";
-   Map_2_Key_1 : aliased constant String := "static";
-   Map_2_Key_2 : aliased constant String := "static-path";
-   Map_2_Key_3 : aliased constant String := "template";
-   Map_2_Keys : constant array (0 .. 3) of access constant String
+   Map_2_Key_0 : aliased constant String := "default-printer";
+   Map_2_Key_1 : aliased constant String := "default-pretty-printer";
+   Map_2_Key_2 : aliased constant String := "pretty-printer";
+   Map_2_Key_3 : aliased constant String := "endpoints";
+   Map_2_Key_4 : aliased constant String := "static";
+   Map_2_Key_5 : aliased constant String := "static-path";
+   Map_2_Key_6 : aliased constant String := "template";
+   Map_2_Keys : constant array (0 .. 6) of access constant String
      := (Map_2_Key_0'Access,
          Map_2_Key_1'Access,
          Map_2_Key_2'Access,
-         Map_2_Key_3'Access);
-   Map_2_Elements : constant array (0 .. 3) of Server_Command
-     := (Endpoints,
+         Map_2_Key_3'Access,
+         Map_2_Key_4'Access,
+         Map_2_Key_5'Access,
+         Map_2_Key_6'Access);
+   Map_2_Elements : constant array (0 .. 6) of Server_Command
+     := (Default_Printer,
+         Default_Printer,
+         Default_Printer,
+         Endpoints,
          Static_Path,
          Static_Path,
          Template);
