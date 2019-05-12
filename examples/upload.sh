@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2014-2016, Natacha Porté
+# Copyright (c) 2014-2019, Natacha Porté
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -107,18 +107,45 @@ fi
 
 echo "Report at ${ROOT_URI}${HASH}"
 
-if ! test -n "${HMAC_SHA1}"; then
-	if which hmac-sha1 1>/dev/null 2>/dev/null; then
-		HMAC_SHA1=hmac-sha1
-	elif test -x $(dirname "$0")/hmac-sha1; then
-		HMAC_SHA1=$(dirname "$0")/hmac-sha1
+if test -n "${HMAC_SHA1}"; then
+	HMAC=$(${HMAC_SHA1} -b "${PINENTRY:+-p}${PINENTRY:--f-}" "${HASH}" \
+	    | sed -e 'y,+/,-_,' -e 's/=//g')
+elif which hmac-sha1 1>/dev/null 2>/dev/null; then
+	HMAC_SHA1=hmac-sha1
+	HMAC=$(${HMAC_SHA1} -b "${PINENTRY:+-p}${PINENTRY:--f-}" "${HASH}" \
+	    | sed -e 'y,+/,-_,' -e 's/=//g')
+elif test -x $(dirname "$0")/hmac-sha1; then
+	HMAC_SHA1=$(dirname "$0")/hmac-sha1
+	HMAC=$(${HMAC_SHA1} -b "${PINENTRY:+-p}${PINENTRY:--f-}" "${HASH}" \
+	    | sed -e 'y,+/,-_,' -e 's/=//g')
+elif which sha1hmac 1>/dev/null 2>/dev/null; then
+	echo -n "${HASH}" >/tmp/upload-sha1.txt
+	echo -n "Enter HMAC key: "
+	read HMAC_KEY
+
+	if which base64 1>/dev/null 2>/dev/null; then
+		# GNU coreutils base64
+		HMAC=$(sha1hmac -K "${HMAC_KEY}" /tmp/upload-sha1.txt |\
+		     cut -f1 |\
+		     xxd -r -p |\
+		     base64 |\
+		     sed -e 'y,+/,-_,' -e 's/=//g')
+	elif which b64encode 1>/dev/null 2>/dev/null; then
+		# FreeBSD base-64 encoder
+		HMAC=$(sha1hmac -K "${HMAC_KEY}" /tmp/upload-sha1.txt |\
+		     cut -f1 |\
+		     xxd -r -p |\
+		     b64encode - |\
+		     sed -n -e 'y,+/,-_,' -e '2s/=//gp')
 	else
-		echo "Unable to detect HMAC-SHA-1 tool," \
-		    "please set HMAC_SHA1" >&2
+		echo "Unable to find base-64 encoding tool for HMAC" >&2
 		exit 1
 	fi
+	rm /tmp/upload-sha1.txt
+else
+	echo "Unable to detect HMAC-SHA-1 tool," \
+	    "please set HMAC_SHA1" >&2
+	exit
 fi
 
-HMAC=$("${HMAC_SHA1}" -b "${PINENTRY:+-p}${PINENTRY:--f-}" -- "${HASH}" \
-    | sed -e 'y,+/,-_,' -e 's/=//g')
 echo "Download at ${ROOT_URI}${HMAC}/${BASE_NAME:-filename}"
